@@ -1,0 +1,43 @@
+// -------------------------------------------------------------------------------------------------- //
+// Robert's Smorgasbord 2022                                                                          //
+// https://robertssmorgasbord.net                                                                     //
+// https://www.youtube.com/channel/UCGtReyiNPrY4RhyjClLifBA                                           //
+// QST QMC5883L 3-Axis Digital Compass and Arduino MCU – The Details (1) https://youtu.be/NTDS2Vmnr-4 //
+// -------------------------------------------------------------------------------------------------- //
+
+#include <stdio.h>
+#include "pico/stdlib.h"
+#include "hardware/i2c.h"
+
+#ifndef I2C_H
+#define I2C_H
+
+class I2C
+{
+   public:
+    
+   I2C(i2c_inst_t* i2c_port, const uint sda_pin, const uint scl_pin, int hz);
+
+   void setup();
+
+   int reg_read(
+    const uint addr,
+                const uint8_t reg,
+                uint8_t *buf,
+                const uint8_t nbytes);
+
+    int reg_write(
+        const uint addr, 
+        const uint8_t reg, 
+        const uint8_t *buf,
+        const uint8_t nbytes);
+
+   private:
+
+   const int hz;
+   const uint sda_pin;
+   const uint scl_pin;
+   i2c_inst_t *i2c_port;
+};
+
+#endif
