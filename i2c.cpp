@@ -8,8 +8,6 @@ I2C::I2C(i2c_inst_t* i2c_port, const uint sda_pin, const uint scl_pin, int hz)
     hz(hz){}
 
 void I2C::setup(){
-    stdio_init_all();
-
     //Initialize I2C port at 400 kHz
     i2c_init(i2c_port, 400 * 1000);
 

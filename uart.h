@@ -27,7 +27,7 @@ class UART
 
     void write(const std::string& str);
 
-    void listenForData();
+    void readData();
 
     std::string getReceivedData();
 

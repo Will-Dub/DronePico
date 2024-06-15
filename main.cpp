@@ -17,177 +17,69 @@
 #define RAD180 (180 * PI)
 
 volatile bool data_ready_qmc5883l;
-bool error_qmc5883l;
-bool new_data_gps;
+
+// Shared data structure
+struct SensorData {
+    float pitch;
+    float roll;
+    float yaw;
+    float gps_latitude;
+    float gps_longitude;
+    float gps_altitude;
+};
+
+volatile SensorData shared_data;
+volatile int shared_data_ready = 0;
+mutex_t data_mutex;
 
 /*******************************************************************************
  * Function Definitions
  */
 
-void printError(QMC5883L::Error error, char *error_location)
-{
-   printf("Error: ");
-   switch(error)
-   {
-      case QMC5883L::i2c_buffer_overflow: printf("I2C buffer overflow");          break;
-      case QMC5883L::i2c_address_nack:    printf("I2C address not acknowledged"); break;
-      case QMC5883L::i2c_data_nack:       printf("I2C data not acknowledged");    break;
-      case QMC5883L::i2c_other:           printf("I2C other");                    break;
-      case QMC5883L::i2c_request_partial: printf("I2C request partial");          break;
-      case QMC5883L::qmc_data_overflow:   printf("QMC5883L data overflow");       break;
-   }
-   printf("%d\n", error);
-   printf(" in ");
-   printf(error_location);
-}
-
-void printConfig(const QMC5883L::Config& config)
-{
-   printf(  "  Mode               = "); 
-   switch (config.mode)
-   {
-      case QMC5883L::Mode::standby:    printf("Standby"); break;
-      case QMC5883L::Mode::continuous: printf("Continuous"); break;
-   }
-   printf(  "  Output Data Rate   = ");
-   switch (config.output_data_rate)
-   {
-      case QMC5883L::OutputDataRate::odr_10hz:  printf("10Hz");  break;
-      case QMC5883L::OutputDataRate::odr_50hz:  printf("50Hz");  break;
-      case QMC5883L::OutputDataRate::odr_100hz: printf("100Hz"); break;
-      case QMC5883L::OutputDataRate::odr_200hz: printf("200Hz"); break;
-   }
-   printf(  "  Full Scale Range   = ");
-   switch (config.full_scale_range)
-   {
-      case QMC5883L::FullScaleRange::rng_2g: printf("2G"); break;
-      case QMC5883L::FullScaleRange::rng_8g: printf("5G"); break;
-   }
-   printf(  "  Over Sample Rate   = ");
-   switch (config.over_sample_rate)
-   {
-      case QMC5883L::OverSampleRate::osr_64:  printf("64");  break;
-      case QMC5883L::OverSampleRate::osr_128: printf("128"); break;
-      case QMC5883L::OverSampleRate::osr_256: printf("256"); break;
-      case QMC5883L::OverSampleRate::osr_512: printf("512"); break;
-   }
-   printf(  "  Interrupt Disabled = ");
-   printf(config.interrupt_disabled ? "True" : "False");  
-   printf("\r\n");
-}
-
-void printStatus(bool data_ready, bool data_overflow, bool data_skipped)
-{
-   printf("Status: Data Ready = ");
-   printf(data_ready     ? "True " : "False");
-   printf(", Data Overflow = ");
-   printf(data_overflow  ? "True " : "False");
-   printf(", Data Skipped = ");
-   printf(data_skipped ? "True " : "False");
-}
-
-void plotData(float x, float y, float z)
-{
-   printf("QMC5883L Data: X = %.5f\n", x);
-   printf("QMC5883L Data: Y = %.5f\n", y);
-   printf("QMC5883L Data: Z = %.5f\n", z);
-   printf("\n");
-}
-
-void printRawDataOnly(QMC5883L::RawDataAxes rawDataAxes)
-{
-   printf("%d\t", rawDataAxes.x);
-   printf("%d\t", rawDataAxes.y);
-   printf("%d\t", rawDataAxes.z);
-   printf("\n");
-}
-
 void qmc_5883l_interupt(uint gpio, uint32_t events) {
     data_ready_qmc5883l = true;
 }
 
-void uart_gps_test(){
-    UART uart_gps(uart1, 9600, 9, 8);
-
-    new_data_gps = false;
-    
-    // Create a buffer to store received data
-    char buffer[256];
-    
-    while (true) {
-        
-        //std::string receivedString = uart_gps.readLine();
-
-
-
-        // Check if there is data available to read
-        /*if (uart_is_readable(UART_ID_GPS)) {
-            int index = 0;
-            while (uart_is_readable(UART_ID_GPS) && index < sizeof(buffer) - 1) {
-                // Read a character from the UART
-                buffer[index++] = uart_getc(UART_ID_GPS);
-            }
-            buffer[index] = '\0'; // Null-terminate the string
-            
-            // Print the received data
-            printf("Received: %s\n", buffer);
-        }*/
-        
-        // Optional: Add a small delay to avoid flooding the output
-        sleep_ms(100);
-    }
-    
-    return;
-}
-
-void uartListenerTask() {
-    UART* uart = reinterpret_cast<UART*>(multicore_fifo_pop_blocking());
-    uart->listenForData();
-}
-
-/*******************************************************************************
- * Main
- */
-int main() {
-    //uart_gps_test();
-
-    //Initialise communication with pizero
-
-    UART uart_zero(uart0, 9600, 1, 0);
-
-    //Commence le thread qui listen sur le uart
-
-    multicore_launch_core1(uartListenerTask);
-
-    multicore_fifo_push_blocking(reinterpret_cast<uint32_t>(&uart_zero));
-
+// Lis les données des sensors et fait les calcul de stabilisation
+void readSensorsAndCalculateBasicData(){
+    //-------------------------------------------
+    //Variable declaration
+    bool error_qmc5883l;
+    bool new_data_gps;
     float rateCalibrationRoll, rateCalibrationPitch, rateCalibrationYaw;
 
+    //-------------------------------------------
+    //Get arguments
+    UART* uart_zero = reinterpret_cast<UART*>(multicore_fifo_pop_blocking());
+
+    //-------------------------------------------
+    //Assign the sensor variable
     //SDA = 12, SCL = 13
     I2C i2c = I2C(i2c0, 12, 13, 400*1000);
 
     i2c.setup();
 
-    //MPU 6050 initialisation
     MPU6050 mpu6050 = MPU6050(&i2c);
+
+    QMC5883L qmc5883l = QMC5883L(&i2c);
+
+    //-------------------------------------------
+    //Initialise the sensors
+    //MPU 6050 initialisation + calibration
 
     printf("INIT MPU6050\n");
     if(mpu6050.init()){
         printf("MPU6050 ERREUR DURANT INIT\n");
-        return 1;
     }
     printf("FIN INIT MPU6050\n");
 
     printf("CALIBRATING MPU6050...\n");
     if(mpu6050.calibrate()){
         printf("MPU6050 ERREUR DURANT LA CALIBRATION\n");
-        return 1;
     }
     printf("CALIBRATING FINISHED MPU6050\n");
 
-    //QMC6883L config
-    QMC5883L qmc5883l = QMC5883L(&i2c);
-    const char qmc5883l_data_ready_pin = 16;
+    //QMC6883L initialisation + config
     volatile bool data_ready;
 
     printf("CONFIG DEBUT QMC5883L\n");
@@ -226,21 +118,23 @@ int main() {
     }
 
     data_ready_qmc5883l = false;
-    
-    //Set the interupt
+
+    //Set the interupt for qmc5883l
+    const char qmc5883l_data_ready_pin = 16;
     gpio_init(qmc5883l_data_ready_pin);
     gpio_set_dir(qmc5883l_data_ready_pin, GPIO_IN);
     gpio_pull_down(qmc5883l_data_ready_pin);
     gpio_set_irq_enabled(qmc5883l_data_ready_pin, GPIO_IRQ_EDGE_RISE, true);
     gpio_set_irq_enabled_with_callback(qmc5883l_data_ready_pin, GPIO_IRQ_EDGE_RISE, true, &qmc_5883l_interupt);
 
-    printf("\n\nSTART\n");
+    printf("\n\nCORE INIT END\n");
+
+    //-------------------------------------------
+    //MAIN LOOP
     while (true) {
-        //Handle pi zero
-        if(uart_zero.isNewDataReceived()){
-            std::string data = uart_zero.getReceivedData();
-            uart_zero.write(data);
-        }
+        //-------------------------------------------
+        //Read the data
+        uart_zero->readData();
 
         if(!error_qmc5883l && data_ready_qmc5883l){
             if (qmc5883l.readData())
@@ -259,18 +153,8 @@ int main() {
             printf("MPU6050 ERREUR DURANT LECTURE\n");
         }
 
-        //acc_x = (int16_t)((data[1] << 8) | data[0]);
-        //acc_y = (int16_t)((data[3] << 8) | data[2]);
-        //acc_z = (int16_t)((data[5] << 8) | data[4]);
-
-        // Convert measurements to [m/s^2]
-        //acc_x_f = acc_x * SENSITIVITY_2G * EARTH_GRAVITY;
-        //acc_y_f = acc_y * SENSITIVITY_2G * EARTH_GRAVITY;
-        //acc_z_f = acc_z * SENSITIVITY_2G * EARTH_GRAVITY;
-
-        // Print results
-        //printf("Accel(g) X: %.2f | Y: %.2f | Z: %.2f\r\n", mpu6050.accelX_processed, mpu6050.accelY_processed, mpu6050.accelZ_processed);
-        //printf("Gyro (deg) X: %.2f | Y: %.2f | Z: %.2f\r\n", mpu6050.gyroX_processed, mpu6050.gyroY_processed, mpu6050.gyroZ_processed);
+        //-------------------------------------------
+        //Process and store the data
 
         float pitch = atan2(mpu6050.accelX_processed, sqrt(mpu6050.accelY_processed * mpu6050.accelY_processed + mpu6050.accelZ_processed * mpu6050.accelZ_processed)) * RAD180;
         float roll = atan2(mpu6050.accelY_processed, sqrt(mpu6050.accelX_processed * mpu6050.accelX_processed + mpu6050.accelZ_processed * mpu6050.accelZ_processed)) * RAD180;
@@ -278,9 +162,71 @@ int main() {
 
         printf("DATA pitch: %.2f | roll: %.2f | yaw: %.2f\r\n", pitch, roll, yaw);
 
-        sleep_ms(100);
-        
-        //printf("X: %.2f | Y: %.2f | Z: %.2f\r\n", acc_x, acc_y, acc_z);
-        //printf("X: %.2f | Y: %.2f | Z: %.2f\r\n", acc_x_f, acc_y_f, acc_z_f);
+        //-------------------------------------------
+        //Send the data
     }
+}
+
+// Recois les données du zero, fait des calcul avec les données des sensors et l'envoie aux moteurs
+void controlMotors(UART* uart_zero){
+    //-------------------------------------------
+    //Variable declaration
+    SensorData local_data;
+
+    printf("\n\nCORE INIT END\n");
+
+    //-------------------------------------------
+    //MAIN LOOP
+    while (true) {
+        //-------------------------------------------
+        //Handle new data from pi zero
+        if(uart_zero->isNewDataReceived()){
+            std::string data = uart_zero->getReceivedData();
+            uart_zero->write(data);
+        }
+
+        //-------------------------------------------
+        //Send sensor data to pi zero
+        if (shared_data_ready) {
+            // Acquire lock, read shared data, and release lock
+            mutex_enter_blocking(&data_mutex);
+            memcpy(&local_data, (void*)&shared_data, sizeof(SensorData));
+            shared_data_ready = 0;
+            mutex_exit(&data_mutex);
+
+            // Use the data (e.g., for motor control)
+            // Replace with actual motor control logic
+            printf("Pitch: %.2f, Roll: %.2f, Yaw: %.2f, GPS: (%.4f, %.4f, %.2f)\n",
+                   local_data.pitch, local_data.roll, local_data.yaw,
+                   local_data.gps_latitude, local_data.gps_longitude, local_data.gps_altitude);
+        }
+
+        //-------------------------------------------
+        //Process motor and sensor data together
+
+        //-------------------------------------------
+        //Send data to motor
+    }
+}
+
+/*******************************************************************************
+ * Main
+ */
+int main() {
+    stdio_init_all();
+
+    // Initialize the mutex
+    mutex_init(&data_mutex);
+
+    //Initialise communication with pizero
+    UART uart_zero(uart0, 9600, 1, 0);
+
+    //Commence le core 1
+    multicore_launch_core1(readSensorsAndCalculateBasicData);
+
+    //Passe les arguments au core 1
+    multicore_fifo_push_blocking(reinterpret_cast<uint32_t>(&uart_zero));
+
+    //Core 0(celui-ci)
+    controlMotors(&uart_zero);
 }

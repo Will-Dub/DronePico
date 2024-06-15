@@ -72,15 +72,13 @@ std::vector<std::string> UART::getReceivedLines() {
     return lines;
 }
 
-void UART::listenForData() {
-    while (true) {
-        if (uart_is_readable(instance)) {
-            critical_section_enter_blocking(&critSec);
-            char c = uart_getc(instance);
-            critical_section_exit(&critSec);
-            received_data += c;
-            new_data_received.store(true);
-        }
+void UART::readData() {
+    if (uart_is_readable(instance)) {
+        critical_section_enter_blocking(&critSec);
+        char c = uart_getc(instance);
+        critical_section_exit(&critSec);
+        received_data += c;
+        new_data_received.store(true);
     }
 }
 
