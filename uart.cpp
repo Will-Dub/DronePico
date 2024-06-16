@@ -16,21 +16,6 @@ UART::UART(uart_inst_t *uart_p, uint baudrate_p, uint rx_pin_p, uint tx_pin_p):
         uart_set_fifo_enabled(instance, true);
     }
 
-
-/*std::string UART::readLine() {
-    std::string receivedString = "";
-    while (true) {
-        if (uart_is_readable(instance)) {
-            char c = uart_getc(instance);
-            if (c == '\n') {
-                break;
-            }
-            receivedString += c;
-        }
-    }
-    return receivedString;
-}*/
-
 void UART::writeLine(const std::string& str) {
     for (char c : str) {
         uart_putc(instance, c);
@@ -46,20 +31,17 @@ void UART::write(const std::string& str) {
 
 std::string UART::getReceivedData() {
     std::string received_data_return = "";
-    critical_section_enter_blocking(&critSec);
 
     received_data_return = received_data;
 
-    new_data_received.store(false);
+    new_data_received = false;
     received_data.clear();
 
-    critical_section_exit(&critSec);
     return received_data_return;
 }
 
 std::vector<std::string> UART::getReceivedLines() {
     std::vector<std::string> lines;
-    critical_section_enter_blocking(&critSec);
     
     size_t pos = 0;
     while ((pos = received_data.find('\n')) != std::string::npos) {
@@ -67,18 +49,17 @@ std::vector<std::string> UART::getReceivedLines() {
         received_data.erase(0, pos + 1);
     }
     
-    new_data_received.store(!received_data.empty());
-    critical_section_exit(&critSec);
+    new_data_received = !received_data.empty();
     return lines;
 }
 
 void UART::readData() {
-    if (uart_is_readable(instance)) {
-        critical_section_enter_blocking(&critSec);
-        char c = uart_getc(instance);
-        critical_section_exit(&critSec);
-        received_data += c;
-        new_data_received.store(true);
+    if(uart_is_readable(instance)){
+        while(uart_is_readable(instance)) {
+            char c = uart_getc(instance);
+            received_data += c;
+        }
+        new_data_received = true;
     }
 }
 
@@ -87,5 +68,5 @@ void UART::flush() {
 }
 
 bool UART::isNewDataReceived() {
-    return new_data_received.load();
+    return new_data_received;
 }

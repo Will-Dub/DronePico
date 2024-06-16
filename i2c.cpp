@@ -8,12 +8,14 @@ I2C::I2C(i2c_inst_t* i2c_port, const uint sda_pin, const uint scl_pin, int hz)
     hz(hz){}
 
 void I2C::setup(){
-    //Initialize I2C port at 400 kHz
-    i2c_init(i2c_port, 400 * 1000);
+    i2c_init(i2c_port, hz);
 
     // Initialize I2C pins
     gpio_set_function(sda_pin, GPIO_FUNC_I2C);
     gpio_set_function(scl_pin, GPIO_FUNC_I2C);
+
+    gpio_pull_up(sda_pin);
+    gpio_pull_up(scl_pin);
 }
 
 // Write 1 byte to the specified register

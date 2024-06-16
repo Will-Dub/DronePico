@@ -23,6 +23,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     mpu6050.h
     qmc5883l.cpp
     qmc5883l.h
+    TinyGPS++.cpp
+    TinyGPS++.h
     uart.cpp
     uart.h
 )

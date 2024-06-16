@@ -42,9 +42,8 @@ class UART
     uint baudrate;
     uint rx_pin;
     uint tx_pin;
-    std::atomic<bool> new_data_received;
+    bool new_data_received;
     std::string received_data;
-    critical_section_t critSec;
 };
 
 #endif

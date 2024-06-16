@@ -29,13 +29,19 @@ int MPU6050::init(){
     //temp_buf = 0x8;
     temp_buf = 0x0;
     if(i2c->reg_write(MPU6050_ADDR, 0x1B, &temp_buf, 1) == 0){
-        return 3;
+        return 1;
     }
 
     // Change le scale de la sensibilité accelero
     temp_buf = 0x0;
     if(i2c->reg_write(MPU6050_ADDR, 0x1C, &temp_buf, 1) == 0){
-        return 3;
+        return 1;
+    }
+
+    // Active le interupt
+    temp_buf = 0x01;
+    if(i2c->reg_write(MPU6050_ADDR, 0x38, &temp_buf, 1) == 0){
+        return 1;
     }
 
     return 0;
