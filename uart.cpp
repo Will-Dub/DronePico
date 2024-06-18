@@ -29,6 +29,10 @@ void UART::write(const std::string& str) {
     }
 }
 
+void UART::writeBlock(const uint8_t* data, uint size) {
+    uart_write_blocking(instance, data, size);
+}
+
 std::string UART::getReceivedData() {
     std::string received_data_return = "";
 
@@ -59,6 +63,7 @@ void UART::readData() {
             char c = uart_getc(instance);
             received_data += c;
         }
+        last_receive_time = get_absolute_time();
         new_data_received = true;
     }
 }
@@ -69,4 +74,8 @@ void UART::flush() {
 
 bool UART::isNewDataReceived() {
     return new_data_received;
+}
+
+uint64_t UART::get_last_receive_time() {
+    return to_us_since_boot(last_receive_time);
 }

@@ -69,7 +69,6 @@ public:
 
    TinyGPSLocation() : valid(false), updated(false), fixQuality(Invalid), fixMode(N)
    {}
-
 private:
    bool valid, updated;
    RawDegrees rawLatData, rawLngData, rawNewLatData, rawNewLngData;

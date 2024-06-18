@@ -67,6 +67,11 @@ int I2C::reg_read(
     if(result == PICO_ERROR_GENERIC){
         return 0;
     }
-
+    
+    last_receive_time = get_absolute_time();
     return nbytes;
+}
+
+uint64_t I2C::get_last_receive_time() {
+    return to_us_since_boot(last_receive_time);
 }

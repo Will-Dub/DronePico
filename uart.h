@@ -27,6 +27,8 @@ class UART
 
     void write(const std::string& str);
 
+    void writeBlock(const uint8_t* data, uint size);
+
     void readData();
 
     std::string getReceivedData();
@@ -37,7 +39,10 @@ class UART
 
     bool isNewDataReceived();
 
+    uint64_t get_last_receive_time();
+
     private:
+    absolute_time_t last_receive_time;
     uart_inst_t *instance;
     uint baudrate;
     uint rx_pin;

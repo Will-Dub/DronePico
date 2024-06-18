@@ -21,21 +21,51 @@ static const int RXPin_GPS = 9, TXPin_GPS = 8;
 const char mpu6050_data_ready_pin = 17;
 const char qmc5883l_data_ready_pin = 16;
 
+const int timeout = 10000;
+
 volatile bool data_ready_qmc5883l = false;
 volatile bool data_ready_mpu6050 = false;
 
-// Shared data structure
-struct SensorData {
-    float pitch;
-    float roll;
-    float yaw;
-    float gps_latitude;
-    float gps_longitude;
-    float gps_altitude;
+// Flight mode enumeration
+enum FlightMode {
+    MANUAL,
+    STABILIZE,
+    ALT_HOLD,
+    AUTO
 };
 
-volatile SensorData shared_data;
-volatile bool shared_data_ready = false;
+// Shared data structure
+struct FlightControllerData {
+    // Configuration data
+    float pid_kp, pid_ki, pid_kd;
+
+    // State information
+    FlightMode mode;
+    bool fail_safe_triggered;
+
+    // Control parameters
+    float desired_pitch, desired_roll, desired_yaw;
+    uint16_t motor_pwm[4];
+};
+
+struct SensorData {
+    // Sensor data
+    float accel_x, accel_y, accel_z;
+    float gyro_x, gyro_y, gyro_z;
+    int16_t mag_x, mag_y, mag_z;
+    float pitch, roll, yaw;
+    double gps_latitude, gps_longitude, gps_altitude;
+    float baro_pressure, baro_temperature;
+
+    float battery_voltage, battery_current;
+
+    // Status flags
+    bool uart_zero_connected, uart_gps_connected, i2c_connected;
+};
+
+
+volatile SensorData shared_sensor_data;
+volatile bool shared_sensor_data_ready = false;
 mutex_t data_mutex;
 mutex_t zero_mutex;
 
@@ -52,6 +82,14 @@ void interrupt_core1(uint gpio, uint32_t events) {
     }
 }
 
+bool data_received_within_timeout(uint64_t last_receive_time) {
+    absolute_time_t current_time = get_absolute_time();
+    uint64_t current_ms = to_us_since_boot(current_time) / 1000;
+    uint64_t last_ms = last_receive_time / 1000;
+
+    return (current_ms - last_ms <= timeout);
+}
+
 // Lis les données des sensors et fait les calcul de stabilisation
 void readSensorsAndCalculateBasicData(){
     //----------------------------------------------------------------------
@@ -59,7 +97,7 @@ void readSensorsAndCalculateBasicData(){
     bool error_qmc5883l;
     bool new_data_gps;
     float rateCalibrationRoll, rateCalibrationPitch, rateCalibrationYaw;
-    SensorData local_data;
+    SensorData local_sensor_data;
 
     //----------------------------------------------------------------------
     //Get arguments
@@ -150,6 +188,7 @@ void readSensorsAndCalculateBasicData(){
 
     //----------------------------------------------------------------------
     //MAIN LOOP
+    bool new_data = false;
     while (true) {
         //----------------------------------------------------------------------
         //Read the data
@@ -160,15 +199,12 @@ void readSensorsAndCalculateBasicData(){
 
         //Data from qmc
         if(!error_qmc5883l && data_ready_qmc5883l){
-            if (qmc5883l.readData())
+            if (!qmc5883l.readData())
             {
-                //printRawDataOnly(qmc5883l.rawDataAxes());
-                //plotData(qmc5883l.calibratedDataX(), qmc5883l.calibratedDataY(), qmc5883l.calibratedDataZ());
-                //printf("\nAzimuth: %.2f\n", qmc5883l.azimuthZUp());
-            }else{
                 printf("Error: %d", qmc5883l.lastError());
             }
             data_ready_qmc5883l = false;
+            new_data = true;
         }
 
         //Data from mpu6050
@@ -177,39 +213,69 @@ void readSensorsAndCalculateBasicData(){
                 printf("MPU6050 ERREUR DURANT LECTURE\n");
             }
             data_ready_mpu6050 = false;
+            new_data = true;
         }
 
         //Data from gps
+        std::string gps_out = "";
         while (uart_is_readable(uart1)) {
-            gps.encode(uart_getc(uart1));
+            char c = uart_getc(uart1);
+            gps.encode(c);
+            gps_out += c;
+            new_data = true;
+        }
+
+        if(gps_out != ""){
+            mutex_enter_blocking(&zero_mutex);
+            uart_zero->writeLine(gps_out);
+            mutex_exit(&zero_mutex);
+            gps_out = "";
         }
         
         //----------------------------------------------------------------------
         //Process and store the data
-        local_data.pitch = atan2(mpu6050.accelX_processed, sqrt(mpu6050.accelY_processed * mpu6050.accelY_processed + mpu6050.accelZ_processed * mpu6050.accelZ_processed)) * RAD180;
-        local_data.roll = atan2(mpu6050.accelY_processed, sqrt(mpu6050.accelX_processed * mpu6050.accelX_processed + mpu6050.accelZ_processed * mpu6050.accelZ_processed)) * RAD180;
-        local_data.yaw = atan2(qmc5883l.calibratedDataY(), qmc5883l.calibratedDataX()) * RAD180;
+        if(new_data == true){
+            local_sensor_data.accel_x = mpu6050.accelX_processed;
+            local_sensor_data.accel_y = mpu6050.accelY_processed;
+            local_sensor_data.accel_z = mpu6050.accelZ_processed;
+            local_sensor_data.gyro_x = mpu6050.gyroX_processed;
+            local_sensor_data.gyro_y = mpu6050.gyroY_processed;
+            local_sensor_data.gyro_z = mpu6050.gyroZ_processed;
+            local_sensor_data.mag_x = qmc5883l.calibratedDataX();
+            local_sensor_data.mag_y = qmc5883l.calibratedDataY();
+            local_sensor_data.mag_z = qmc5883l.calibratedDataZ();
+            local_sensor_data.pitch = atan2(local_sensor_data.accel_x, sqrt(local_sensor_data.accel_y * local_sensor_data.accel_y + local_sensor_data.accel_z * local_sensor_data.accel_z)) * RAD180;
+            local_sensor_data.roll = atan2(local_sensor_data.accel_y, sqrt(local_sensor_data.accel_x * local_sensor_data.accel_x + local_sensor_data.accel_z * local_sensor_data.accel_z)) * RAD180;
+            local_sensor_data.yaw = atan2(local_sensor_data.mag_y, local_sensor_data.mag_x) * RAD180;
 
-        if (gps.location.isValid()) {
-            local_data.gps_latitude = gps.location.lat();
-            local_data.gps_longitude = gps.location.lng();
-        } else {
-            local_data.gps_latitude = 0.0f;
-            local_data.gps_longitude = 0.0f;
+            if (gps.location.isValid()) {
+                local_sensor_data.gps_latitude = gps.location.lat();
+                local_sensor_data.gps_longitude = gps.location.lng();
+            } else {
+                local_sensor_data.gps_latitude = 0.0f;
+                local_sensor_data.gps_longitude = 0.0f;
+            }
+
+            if (gps.altitude.isValid()) {
+                local_sensor_data.gps_altitude = gps.altitude.meters();
+            } else {
+                local_sensor_data.gps_altitude = 0.0f;
+            }
         }
 
-        if (gps.altitude.isValid()) {
-            local_data.gps_altitude = gps.altitude.meters();
-        } else {
-            local_data.gps_altitude = 0.0f;
-        }
+        local_sensor_data.uart_gps_connected = data_received_within_timeout(uart_gps.get_last_receive_time());
+        local_sensor_data.i2c_connected = data_received_within_timeout(i2c.get_last_receive_time());
+        local_sensor_data.uart_zero_connected = data_received_within_timeout(uart_zero->get_last_receive_time());
 
         //----------------------------------------------------------------------
         //Send the data to the other core
-        mutex_enter_blocking(&data_mutex);
-        memcpy((void*)&shared_data, &local_data, sizeof(SensorData));
-        shared_data_ready = true;
-        mutex_exit(&data_mutex);
+        if(new_data){
+            mutex_enter_blocking(&data_mutex);
+            memcpy((void*)&shared_sensor_data, &local_sensor_data, sizeof(SensorData));
+            shared_sensor_data_ready = true;
+            mutex_exit(&data_mutex);
+            new_data = false;
+        }
     }
 }
 
@@ -217,7 +283,7 @@ void readSensorsAndCalculateBasicData(){
 void controlMotors(UART* uart_zero){
     //----------------------------------------------------------------------
     //Variable declaration
-    SensorData local_data;
+    SensorData local_sensor_data;
 
     printf("\n\nCORE INIT END\n");
 
@@ -229,37 +295,34 @@ void controlMotors(UART* uart_zero){
         mutex_enter_blocking(&zero_mutex);
         if(uart_zero->isNewDataReceived()){
             std::string data = uart_zero->getReceivedData();
-            uart_zero->write(data);
+            //uart_zero->write(data);
         }
         mutex_exit(&zero_mutex);
 
         //----------------------------------------------------------------------
         //Read sensor data from the other core
         mutex_enter_blocking(&data_mutex);
-        bool data_ready = shared_data_ready;
+        bool data_ready = shared_sensor_data_ready;
         mutex_exit(&data_mutex);
 
         if (data_ready) {
             // Acquire lock, read shared data, and release lock
             mutex_enter_blocking(&data_mutex);
-            memcpy(&local_data, (void*)&shared_data, sizeof(SensorData));
-            shared_data_ready = false;
+            memcpy(&local_sensor_data, (void*)&shared_sensor_data, sizeof(SensorData));
+            shared_sensor_data_ready = false;
             mutex_exit(&data_mutex);
 
-
+            mutex_enter_blocking(&zero_mutex);
+            //uart_zero->writeBlock((const uint8_t *)&local_sensor_data, sizeof(SensorData));
 
             char buffer[255];
-            snprintf(buffer, sizeof(buffer), "Pitch: %.2f, Roll: %.2f, Yaw: %.2f, GPS: (%.4f, %.4f, %.2f)\n",
-                     local_data.pitch, local_data.roll, local_data.yaw,
-                     local_data.gps_latitude, local_data.gps_longitude, local_data.gps_altitude);
+                        snprintf(buffer, sizeof(buffer), "Pitch: %.2f, Roll: %.2f, Yaw: %.2f, GPS: (%.4f, %.4f, %.2f)\n",
+                     local_sensor_data.pitch, local_sensor_data.roll, local_sensor_data.yaw,
+                     local_sensor_data.gps_latitude, local_sensor_data.gps_longitude, local_sensor_data.gps_altitude);
 
-            mutex_enter_blocking(&zero_mutex);
-            uart_zero->write(buffer);
+
+            //uart_zero->write(buffer);
             mutex_exit(&zero_mutex);
-
-            printf("Pitch: %.2f, Roll: %.2f, Yaw: %.2f, GPS: (%.4f, %.4f, %.2f)\n",
-                   local_data.pitch, local_data.roll, local_data.yaw,
-                   local_data.gps_latitude, local_data.gps_longitude, local_data.gps_altitude);
         }
 
         //----------------------------------------------------------------------

@@ -32,12 +32,15 @@ class I2C
         const uint8_t *buf,
         const uint8_t nbytes);
 
-   private:
+   uint64_t get_last_receive_time();
 
+   private:
+   absolute_time_t last_receive_time;
    const int hz;
    const uint sda_pin;
    const uint scl_pin;
    i2c_inst_t *i2c_port;
+   
 };
 
 #endif
