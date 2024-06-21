@@ -150,8 +150,8 @@ void readSensorsAndCalculateBasicData(){
 
     //----------------------------------------------------------------------
     //MAIN LOOP
-    bool new_data = false;
     while (true) {
+        bool new_data = false;
         //----------------------------------------------------------------------
         //Read the data
         //Data from zero
@@ -160,30 +160,30 @@ void readSensorsAndCalculateBasicData(){
         mutex_exit(&zero_mutex);
 
         //Data from qmc
-        if(!error_qmc5883l && data_ready_qmc5883l){
+        if(data_ready_qmc5883l){
             if (!qmc5883l.readData())
             {
                 printf("Error: %d", qmc5883l.lastError());
+            }else{
+                data_ready_qmc5883l = false;
+                new_data = true;
             }
-            data_ready_qmc5883l = false;
-            new_data = true;
         }
 
         //Data from mpu6050
         if(data_ready_mpu6050){
             if(mpu6050.get_data_accel() || mpu6050.get_data_gyro()){
                 printf("MPU6050 ERREUR DURANT LECTURE\n");
+            }else{
+                data_ready_mpu6050 = false;
+                new_data = true;
             }
-            data_ready_mpu6050 = false;
-            new_data = true;
         }
 
         //Data from gps
-        std::string gps_out = "";
         while (uart_is_readable(uart1)) {
             char c = uart_getc(uart1);
             gps.encode(c);
-            gps_out += c;
             new_data = true;
         }
         
@@ -217,13 +217,11 @@ void readSensorsAndCalculateBasicData(){
 
         //----------------------------------------------------------------------
         //Send the data to the other core
-        if(new_data){
-            mutex_enter_blocking(&data_mutex);
-            memcpy((void*)&shared_sensor_data, &local_sensor_data, sizeof(SensorData));
-            shared_sensor_data_ready = true;
-            mutex_exit(&data_mutex);
-            new_data = false;
-        }
+        mutex_enter_blocking(&data_mutex);
+        memcpy((void*)&shared_sensor_data, &local_sensor_data, sizeof(SensorData));
+        shared_sensor_data_ready = true;
+        mutex_exit(&data_mutex);
+        
     }
 }
 
