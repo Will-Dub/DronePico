@@ -7,7 +7,7 @@ include($ENV{PICO_SDK_PATH}/tools/CMakeLists.txt)
 #set name of projet (as PROJECT_NAME) and c/c++ standard
 project(dronePico C CXX ASM)
 set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
 pico_sdk_init()
 
@@ -23,8 +23,9 @@ target_sources(${PROJECT_NAME} PRIVATE
     mpu6050.h
     qmc5883l.cpp
     qmc5883l.h
-    TinyGPS++.cpp
-    TinyGPS++.h
+    TinyGPS.cpp
+    TinyGPS.h
+    message.cpp
     uart.cpp
     uart.h
 )

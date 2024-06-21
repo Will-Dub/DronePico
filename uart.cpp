@@ -29,6 +29,13 @@ void UART::write(const std::string& str) {
     }
 }
 
+void UART::writeMessage(const Message &message) {
+    uint8_t buffer[256] = {0};
+    size_t message_size = message.serialize(buffer, sizeof(buffer));
+    
+    uart_write_blocking(instance, buffer, message_size);
+}
+
 void UART::writeBlock(const uint8_t* data, uint size) {
     uart_write_blocking(instance, data, size);
 }
@@ -57,11 +64,32 @@ std::vector<std::string> UART::getReceivedLines() {
     return lines;
 }
 
+std::optional<Message> UART::getReceiveMessage() {
+    if (received_data.size() >= 2) {
+        uint16_t message_length;
+        memcpy(&message_length, received_data.data(), sizeof(uint16_t));
+
+        if (received_data.size() >= sizeof(uint16_t) + message_length) {
+            std::vector<uint8_t> buffer(received_data.begin(), received_data.begin() + sizeof(uint16_t) + message_length);
+            Message message;
+            message.deserialize(buffer.data(), buffer.size());
+
+            // Erase processed bytes
+            received_data.erase(received_data.begin(), received_data.begin() + sizeof(uint16_t) + message_length);
+
+            return message;
+        }
+    }
+
+    return std::nullopt;
+}
+
 void UART::readData() {
     if(uart_is_readable(instance)){
         while(uart_is_readable(instance)) {
-            char c = uart_getc(instance);
-            received_data += c;
+            uint8_t byte;
+            uart_read_blocking(instance, &byte, 1);
+            received_data.push_back(byte);
         }
         last_receive_time = get_absolute_time();
         new_data_received = true;

@@ -7,6 +7,8 @@
 #include "pico/multicore.h"
 #include <atomic>
 #include <vector>
+#include <optional>
+#include "message.cpp"
 
 #ifndef UART_H
 #define UART_H
@@ -40,6 +42,10 @@ class UART
     bool isNewDataReceived();
 
     uint64_t get_last_receive_time();
+
+    void writeMessage(const Message &message);
+
+    std::optional<Message> getReceiveMessage();
 
     private:
     absolute_time_t last_receive_time;

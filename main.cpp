@@ -12,7 +12,8 @@
 #include "mpu6050.h"
 #include "qmc5883l.h"
 #include "uart.h"
-#include "TinyGPS++.h"
+#include "TinyGPS.h"
+#include "message.cpp"
 
 #define PI 3.14159265358979323846
 #define RAD180 (180 * PI)
@@ -25,44 +26,6 @@ const int timeout = 10000;
 
 volatile bool data_ready_qmc5883l = false;
 volatile bool data_ready_mpu6050 = false;
-
-// Flight mode enumeration
-enum FlightMode {
-    MANUAL,
-    STABILIZE,
-    ALT_HOLD,
-    AUTO
-};
-
-// Shared data structure
-struct FlightControllerData {
-    // Configuration data
-    float pid_kp, pid_ki, pid_kd;
-
-    // State information
-    FlightMode mode;
-    bool fail_safe_triggered;
-
-    // Control parameters
-    float desired_pitch, desired_roll, desired_yaw;
-    uint16_t motor_pwm[4];
-};
-
-struct SensorData {
-    // Sensor data
-    float accel_x, accel_y, accel_z;
-    float gyro_x, gyro_y, gyro_z;
-    int16_t mag_x, mag_y, mag_z;
-    float pitch, roll, yaw;
-    double gps_latitude, gps_longitude, gps_altitude;
-    float baro_pressure, baro_temperature;
-
-    float battery_voltage, battery_current;
-
-    // Status flags
-    bool uart_zero_connected, uart_gps_connected, i2c_connected;
-};
-
 
 volatile SensorData shared_sensor_data;
 volatile bool shared_sensor_data_ready = false;
@@ -83,8 +46,7 @@ void interrupt_core1(uint gpio, uint32_t events) {
 }
 
 bool data_received_within_timeout(uint64_t last_receive_time) {
-    absolute_time_t current_time = get_absolute_time();
-    uint64_t current_ms = to_us_since_boot(current_time) / 1000;
+    uint64_t current_ms = to_us_since_boot(get_absolute_time()) / 1000;
     uint64_t last_ms = last_receive_time / 1000;
 
     return (current_ms - last_ms <= timeout);
@@ -106,7 +68,7 @@ void readSensorsAndCalculateBasicData(){
     //----------------------------------------------------------------------
     //Assign the sensor variable
     //SDA = 12, SCL = 13
-    I2C i2c = I2C(i2c0, 12, 13, 400*1000);
+    I2C i2c = I2C(i2c1, 18, 19, 400*1000);
 
     i2c.setup();
 
@@ -116,7 +78,7 @@ void readSensorsAndCalculateBasicData(){
 
     QMC5883L qmc5883l(&i2c);
 
-    TinyGPSPlus gps;
+    TinyGPS gps;
 
     //----------------------------------------------------------------------
     //Initialise the sensors
@@ -224,13 +186,6 @@ void readSensorsAndCalculateBasicData(){
             gps_out += c;
             new_data = true;
         }
-
-        if(gps_out != ""){
-            mutex_enter_blocking(&zero_mutex);
-            uart_zero->writeLine(gps_out);
-            mutex_exit(&zero_mutex);
-            gps_out = "";
-        }
         
         //----------------------------------------------------------------------
         //Process and store the data
@@ -248,19 +203,12 @@ void readSensorsAndCalculateBasicData(){
             local_sensor_data.roll = atan2(local_sensor_data.accel_y, sqrt(local_sensor_data.accel_x * local_sensor_data.accel_x + local_sensor_data.accel_z * local_sensor_data.accel_z)) * RAD180;
             local_sensor_data.yaw = atan2(local_sensor_data.mag_y, local_sensor_data.mag_x) * RAD180;
 
-            if (gps.location.isValid()) {
-                local_sensor_data.gps_latitude = gps.location.lat();
-                local_sensor_data.gps_longitude = gps.location.lng();
-            } else {
-                local_sensor_data.gps_latitude = 0.0f;
-                local_sensor_data.gps_longitude = 0.0f;
-            }
+            float flat, flon;
+            unsigned long age;
+            gps.f_get_position(&flat, &flon, &age);
 
-            if (gps.altitude.isValid()) {
-                local_sensor_data.gps_altitude = gps.altitude.meters();
-            } else {
-                local_sensor_data.gps_altitude = 0.0f;
-            }
+            local_sensor_data.gps_latitude = flat;
+            local_sensor_data.gps_longitude = flon;
         }
 
         local_sensor_data.uart_gps_connected = data_received_within_timeout(uart_gps.get_last_receive_time());
@@ -315,13 +263,11 @@ void controlMotors(UART* uart_zero){
             mutex_enter_blocking(&zero_mutex);
             //uart_zero->writeBlock((const uint8_t *)&local_sensor_data, sizeof(SensorData));
 
-            char buffer[255];
-                        snprintf(buffer, sizeof(buffer), "Pitch: %.2f, Roll: %.2f, Yaw: %.2f, GPS: (%.4f, %.4f, %.2f)\n",
-                     local_sensor_data.pitch, local_sensor_data.roll, local_sensor_data.yaw,
-                     local_sensor_data.gps_latitude, local_sensor_data.gps_longitude, local_sensor_data.gps_altitude);
+            Message message;
+            message.type = MessageType::SensorData;
+            message.data.sensor_data = local_sensor_data;
 
-
-            //uart_zero->write(buffer);
+            uart_zero->writeMessage(message);
             mutex_exit(&zero_mutex);
         }
 
