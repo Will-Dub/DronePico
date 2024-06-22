@@ -36,6 +36,25 @@ mutex_t zero_mutex;
  * Function Definitions
  */
 
+void log_info(UART* uart_out, const std::string& info, mutex_t* uart_mutex = nullptr) {
+    Message message;
+    message.type = MessageType::LogData;
+    message.data.log_data.type = LogType::Info;
+
+    std::strncpy(message.data.log_data.message, info.c_str(), sizeof(message.data.log_data.message) - 1);
+    message.data.log_data.message[sizeof(message.data.log_data.message) - 1] = '\0';
+
+    if (uart_mutex != nullptr) {
+        mutex_enter_blocking(uart_mutex);
+    }
+
+    uart_out->writeMessage(message);
+
+    if (uart_mutex != nullptr) {
+        mutex_exit(uart_mutex);
+    }
+}
+
 void interrupt_core1(uint gpio, uint32_t events) {
     if(gpio == qmc5883l_data_ready_pin){
         data_ready_qmc5883l = true;
@@ -68,7 +87,7 @@ void readSensorsAndCalculateBasicData(){
     //----------------------------------------------------------------------
     //Assign the sensor variable
     //SDA = 12, SCL = 13
-    I2C i2c = I2C(i2c1, 18, 19, 400*1000);
+    I2C i2c = I2C(i2c1, 26, 27, 400*1000);
 
     i2c.setup();
 
@@ -84,20 +103,20 @@ void readSensorsAndCalculateBasicData(){
     //Initialise the sensors
     //MPU 6050 initialisation + calibration
 
-    printf("INIT MPU6050\n");
+    log_info(uart_zero, "INIT MPU6050", &zero_mutex);
     if(mpu6050.init()){
-        printf("MPU6050 ERREUR DURANT INIT\n");
+        log_info(uart_zero, "MPU6050 ERREUR DURANT INIT", &zero_mutex);
     }
-    printf("FIN INIT MPU6050\n");
+    log_info(uart_zero, "FIN INIT MPU6050", &zero_mutex);
 
-    printf("CALIBRATING MPU6050...\n");
+    log_info(uart_zero, "CALIBRATING MPU6050...", &zero_mutex);
     if(mpu6050.calibrate()){
-        printf("MPU6050 ERREUR DURANT LA CALIBRATION\n");
+        log_info(uart_zero, "MPU6050 ERREUR DURANT LA CALIBRATION", &zero_mutex);
     }
-    printf("CALIBRATING FINISHED MPU6050\n");
+    log_info(uart_zero, "CALIBRATING FINISHED MPU6050", &zero_mutex);
 
     //QMC6883L initialisation + config
-    printf("CONFIG DEBUT QMC5883L\n");
+    log_info(uart_zero, "CONFIG DEBUT QMC5883L", &zero_mutex);
     if (!qmc5883l.begin())
     {
         error_qmc5883l = true;
@@ -126,10 +145,10 @@ void readSensorsAndCalculateBasicData(){
             error_qmc5883l = false;
         }
     }
-    printf("CONFIG FINI QMC5883L\n");
+    log_info(uart_zero, "CONFIG FINI QMC5883L", &zero_mutex);
 
     if(error_qmc5883l){
-        printf("CONFIG QMC5883L FAILED\n");
+        log_info(uart_zero, "CONFIG QMC5883L FAILED", &zero_mutex);
     }
 
     //Set interupts
@@ -146,7 +165,7 @@ void readSensorsAndCalculateBasicData(){
     gpio_set_irq_enabled_with_callback(mpu6050_data_ready_pin, GPIO_IRQ_EDGE_RISE, true, &interrupt_core1);
 
     //----------------------------------------------------------------------
-    printf("\n\nCORE INIT END\n");
+    log_info(uart_zero, "CORE INIT END", &zero_mutex);
 
     //----------------------------------------------------------------------
     //MAIN LOOP
@@ -163,7 +182,7 @@ void readSensorsAndCalculateBasicData(){
         if(data_ready_qmc5883l){
             if (!qmc5883l.readData())
             {
-                printf("Error: %d", qmc5883l.lastError());
+                log_info(uart_zero, "QMC error: " + qmc5883l.lastError(), &zero_mutex);
             }else{
                 data_ready_qmc5883l = false;
                 new_data = true;
@@ -173,7 +192,7 @@ void readSensorsAndCalculateBasicData(){
         //Data from mpu6050
         if(data_ready_mpu6050){
             if(mpu6050.get_data_accel() || mpu6050.get_data_gyro()){
-                printf("MPU6050 ERREUR DURANT LECTURE\n");
+                log_info(uart_zero, "MPU6050 ERREUR DURANT LECTURE", &zero_mutex);
             }else{
                 data_ready_mpu6050 = false;
                 new_data = true;
@@ -231,7 +250,7 @@ void controlMotors(UART* uart_zero){
     //Variable declaration
     SensorData local_sensor_data;
 
-    printf("\n\nCORE INIT END\n");
+    log_info(uart_zero, "CORE INIT END", &zero_mutex);
 
     //----------------------------------------------------------------------
     //MAIN LOOP
@@ -291,7 +310,7 @@ int main() {
     mutex_init(&zero_mutex);
 
     //Initialise communication with pizero
-    UART uart_zero(uart0, 9600, 1, 0);
+    UART uart_zero(uart0, 230400, 1, 0);
 
     //Commence le core 1
     multicore_launch_core1(readSensorsAndCalculateBasicData);
