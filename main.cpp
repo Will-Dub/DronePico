@@ -19,8 +19,8 @@
 #define RAD180 (180 * PI)
 
 static const int RXPin_GPS = 9, TXPin_GPS = 8;
-const char mpu6050_data_ready_pin = 17;
-const char qmc5883l_data_ready_pin = 16;
+const char MPU6050_DATA_READY_PIN = 17;
+const char QMC5883L_DATA_READY_PIN = 16;
 
 const int timeout = 10000;
 
@@ -56,10 +56,10 @@ void log_info(UART* uart_out, const std::string& info, mutex_t* uart_mutex = nul
 }
 
 void interrupt_core1(uint gpio, uint32_t events) {
-    if(gpio == qmc5883l_data_ready_pin){
+    if(gpio == QMC5883L_DATA_READY_PIN){
         data_ready_qmc5883l = true;
     }
-    else{
+    else if(gpio == MPU6050_DATA_READY_PIN){
         data_ready_mpu6050 = true;
     }
 }
@@ -87,7 +87,7 @@ void readSensorsAndCalculateBasicData(){
     //----------------------------------------------------------------------
     //Assign the sensor variable
     //SDA = 12, SCL = 13
-    I2C i2c = I2C(i2c1, 26, 27, 400*1000);
+    I2C i2c = I2C(i2c1, 26, 27, 100*1000);
 
     i2c.setup();
 
@@ -153,16 +153,10 @@ void readSensorsAndCalculateBasicData(){
 
     //Set interupts
     //QMC5883l
-    gpio_init(qmc5883l_data_ready_pin);
-    gpio_set_dir(qmc5883l_data_ready_pin, GPIO_IN);
-    gpio_pull_down(qmc5883l_data_ready_pin);
-    gpio_set_irq_enabled_with_callback(qmc5883l_data_ready_pin, GPIO_IRQ_EDGE_RISE, true, &interrupt_core1);
+    gpio_set_irq_enabled_with_callback(QMC5883L_DATA_READY_PIN, GPIO_IRQ_EDGE_RISE, true, &interrupt_core1);
 
     //MPU6050
-    gpio_init(mpu6050_data_ready_pin);
-    gpio_set_dir(mpu6050_data_ready_pin, GPIO_IN);
-    gpio_pull_down(mpu6050_data_ready_pin);
-    gpio_set_irq_enabled_with_callback(mpu6050_data_ready_pin, GPIO_IRQ_EDGE_RISE, true, &interrupt_core1);
+    gpio_set_irq_enabled_with_callback(MPU6050_DATA_READY_PIN, GPIO_IRQ_EDGE_RISE, true, &interrupt_core1);
 
     //----------------------------------------------------------------------
     log_info(uart_zero, "CORE INIT END", &zero_mutex);
@@ -184,9 +178,9 @@ void readSensorsAndCalculateBasicData(){
             {
                 log_info(uart_zero, "QMC error: " + qmc5883l.lastError(), &zero_mutex);
             }else{
-                data_ready_qmc5883l = false;
                 new_data = true;
             }
+            data_ready_qmc5883l = false;
         }
 
         //Data from mpu6050
@@ -194,9 +188,9 @@ void readSensorsAndCalculateBasicData(){
             if(mpu6050.get_data_accel() || mpu6050.get_data_gyro()){
                 log_info(uart_zero, "MPU6050 ERREUR DURANT LECTURE", &zero_mutex);
             }else{
-                data_ready_mpu6050 = false;
                 new_data = true;
             }
+            data_ready_mpu6050 = false;
         }
 
         //Data from gps
@@ -208,7 +202,7 @@ void readSensorsAndCalculateBasicData(){
         
         //----------------------------------------------------------------------
         //Process and store the data
-        if(new_data == true){
+        if(new_data){
             local_sensor_data.accel_x = mpu6050.accelX_processed;
             local_sensor_data.accel_y = mpu6050.accelY_processed;
             local_sensor_data.accel_z = mpu6050.accelZ_processed;
@@ -240,7 +234,6 @@ void readSensorsAndCalculateBasicData(){
         memcpy((void*)&shared_sensor_data, &local_sensor_data, sizeof(SensorData));
         shared_sensor_data_ready = true;
         mutex_exit(&data_mutex);
-        
     }
 }
 
