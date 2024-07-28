@@ -1,10 +1,9 @@
-#include <cstring>
-#include <stdio.h>
-#include <sstream>
-
 #ifndef MESSAGE_H
 #define MESSAGE_H
 
+#include <cstring>
+#include <stdio.h>
+#include <sstream>
 
 // Message types
 enum class MessageType {
@@ -49,8 +48,9 @@ struct SensorData {
 };
 
 enum LogType : uint8_t {
-    Error,
-    Info
+    LOG_INFO,
+    LOG_ERROR,
+    LOG_CRITICAL
 };
 
 struct LogData {

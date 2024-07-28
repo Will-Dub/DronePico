@@ -1,16 +1,13 @@
 // -------------------------------------------------------------------------------------------------- //
-// Robert's Smorgasbord 2022                                                                          //
-// https://robertssmorgasbord.net                                                                     //
-// https://www.youtube.com/channel/UCGtReyiNPrY4RhyjClLifBA                                           //
-// QST QMC5883L 3-Axis Digital Compass and Arduino MCU – The Details (1) https://youtu.be/NTDS2Vmnr-4 //
+// Code based on Robert's Smorgasbord 2022                                                            //
 // -------------------------------------------------------------------------------------------------- //
+
+#ifndef I2C_H
+#define I2C_H
 
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
-
-#ifndef I2C_H
-#define I2C_H
 
 class I2C
 {

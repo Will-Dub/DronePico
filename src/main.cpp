@@ -8,12 +8,12 @@
 
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
-#include "i2c.h"
-#include "mpu6050.h"
-#include "qmc5883l.h"
-#include "uart.h"
+#include "I2C.h"
+#include "MPU6050.h"
+#include "QMC5883L.h"
+#include "UART.h"
 #include "TinyGPS.h"
-#include "message.cpp"
+#include "Message.h"
 
 #define PI 3.14159265358979323846
 #define RAD180 (180 * PI)
@@ -36,12 +36,12 @@ mutex_t zero_mutex;
  * Function Definitions
  */
 
-void log_info(UART* uart_out, const std::string& info, mutex_t* uart_mutex = nullptr) {
+void log(UART* uart_out, const std::string& data, mutex_t* uart_mutex = nullptr, LogType dataType = LogType::LOG_INFO) {
     Message message;
     message.type = MessageType::LogData;
-    message.data.log_data.type = LogType::Info;
+    message.data.log_data.type = dataType;
 
-    std::strncpy(message.data.log_data.message, info.c_str(), sizeof(message.data.log_data.message) - 1);
+    std::strncpy(message.data.log_data.message, data.c_str(), sizeof(message.data.log_data.message) - 1);
     message.data.log_data.message[sizeof(message.data.log_data.message) - 1] = '\0';
 
     if (uart_mutex != nullptr) {
@@ -107,20 +107,20 @@ void readSensorsAndCalculateBasicData(){
     //Initialise the sensors
     //MPU 6050 initialisation + calibration
 
-    log_info(uart_zero, "INIT MPU6050", &zero_mutex);
+    log(uart_zero, "INIT MPU6050", &zero_mutex);
     if(mpu6050.init()){
-        log_info(uart_zero, "MPU6050 ERREUR DURANT INIT", &zero_mutex);
+        log(uart_zero, "MPU6050 ERREUR DURANT INIT", &zero_mutex, LogType::LOG_CRITICAL);
     }
-    log_info(uart_zero, "FIN INIT MPU6050", &zero_mutex);
+    log(uart_zero, "FIN INIT MPU6050", &zero_mutex);
 
-    log_info(uart_zero, "CALIBRATING MPU6050...", &zero_mutex);
+    log(uart_zero, "CALIBRATING MPU6050...", &zero_mutex);
     if(mpu6050.calibrate()){
-        log_info(uart_zero, "MPU6050 ERREUR DURANT LA CALIBRATION", &zero_mutex);
+        log(uart_zero, "MPU6050 ERREUR DURANT LA CALIBRATION", &zero_mutex, LogType::LOG_CRITICAL);
     }
-    log_info(uart_zero, "CALIBRATING FINISHED MPU6050", &zero_mutex);
+    log(uart_zero, "CALIBRATING FINISHED MPU6050", &zero_mutex);
 
     //QMC6883L initialisation + config
-    log_info(uart_zero, "CONFIG DEBUT QMC5883L", &zero_mutex);
+    log(uart_zero, "CONFIG DEBUT QMC5883L", &zero_mutex);
     if (!qmc5883l.begin())
     {
         error_qmc5883l = true;
@@ -149,10 +149,10 @@ void readSensorsAndCalculateBasicData(){
             error_qmc5883l = false;
         }
     }
-    log_info(uart_zero, "CONFIG FINI QMC5883L", &zero_mutex);
+    log(uart_zero, "CONFIG FINI QMC5883L", &zero_mutex);
 
     if(error_qmc5883l){
-        log_info(uart_zero, "CONFIG QMC5883L FAILED", &zero_mutex);
+        log(uart_zero, "CONFIG QMC5883L FAILED", &zero_mutex, LogType::LOG_CRITICAL);
     }
 
     //Set interupts
@@ -163,7 +163,7 @@ void readSensorsAndCalculateBasicData(){
     gpio_set_irq_enabled_with_callback(MPU6050_DATA_READY_PIN, GPIO_IRQ_EDGE_RISE, true, &interrupt_core1);
 
     //----------------------------------------------------------------------
-    log_info(uart_zero, "CORE INIT END", &zero_mutex);
+    log(uart_zero, "CORE INIT END", &zero_mutex);
 
     //----------------------------------------------------------------------
     //MAIN LOOP
@@ -180,7 +180,7 @@ void readSensorsAndCalculateBasicData(){
         if(data_ready_qmc5883l){
             if (!qmc5883l.readData())
             {
-                log_info(uart_zero, "QMC error: " + qmc5883l.lastError(), &zero_mutex);
+                log(uart_zero, "QMC error: " + qmc5883l.lastError(), &zero_mutex, LogType::LOG_ERROR);
             }else{
                 new_data = true;
             }
@@ -190,7 +190,7 @@ void readSensorsAndCalculateBasicData(){
         //Data from mpu6050
         if(data_ready_mpu6050){
             if(mpu6050.get_data_accel() || mpu6050.get_data_gyro()){
-                log_info(uart_zero, "MPU6050 ERREUR DURANT LECTURE", &zero_mutex);
+                log(uart_zero, "MPU6050 ERREUR DURANT LECTURE", &zero_mutex, LogType::LOG_ERROR);
             }else{
                 new_data = true;
             }
@@ -247,7 +247,7 @@ void controlMotors(UART* uart_zero){
     //Variable declaration
     SensorData local_sensor_data;
 
-    log_info(uart_zero, "CORE INIT END", &zero_mutex);
+    log(uart_zero, "CORE INIT END", &zero_mutex);
 
     //----------------------------------------------------------------------
     //MAIN LOOP
@@ -307,7 +307,7 @@ int main() {
     mutex_init(&zero_mutex);
 
     //Initialise communication with pizero
-    UART uart_zero(uart0, 230400, 1, 0);
+    UART uart_zero(uart0, 460800, 1, 0);
 
     //Commence le core 1
     multicore_launch_core1(readSensorsAndCalculateBasicData);

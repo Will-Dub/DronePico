@@ -1,4 +1,4 @@
-#include "i2c.h"
+#include "I2C.h"
 #include <cstdint>
 
 I2C::I2C(i2c_inst_t* i2c_port, const uint sda_pin, const uint scl_pin, int hz)

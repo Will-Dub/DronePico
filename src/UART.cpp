@@ -1,4 +1,4 @@
-#include "uart.h"
+#include "UART.h"
 
 UART::UART(uart_inst_t *uart_p, uint baudrate_p, uint rx_pin_p, uint tx_pin_p):
     instance(uart_p),

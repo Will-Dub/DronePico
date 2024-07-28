@@ -5,7 +5,7 @@
 // QST QMC5883L 3-Axis Digital Compass and Arduino MCU – The Details (1) https://youtu.be/NTDS2Vmnr-4 //
 // -------------------------------------------------------------------------------------------------- //
 
-#include "qmc5883l.h"
+#include "QMC5883L.h"
 #include <cmath>
 #include <stdio.h>
 #include "pico/stdlib.h"

@@ -1,4 +1,4 @@
-#include "mpu6050.h"
+#include "MPU6050.h"
 
 MPU6050::MPU6050(I2C* i2cc):
     i2c(i2cc)

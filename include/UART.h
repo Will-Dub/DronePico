@@ -1,3 +1,6 @@
+#ifndef UART_H
+#define UART_H
+
 #include <stdio.h>
 #include <string>
 #include "pico/stdlib.h"
@@ -8,10 +11,7 @@
 #include <atomic>
 #include <vector>
 #include <optional>
-#include "message.cpp"
-
-#ifndef UART_H
-#define UART_H
+#include "Message.h"
 
 //Interface pour uart
 class UART

@@ -5,13 +5,13 @@
 // QST QMC5883L 3-Axis Digital Compass and Arduino MCU – The Details (1) https://youtu.be/NTDS2Vmnr-4 //
 // -------------------------------------------------------------------------------------------------- //
 
+#ifndef QMC5883L_H
+#define QMC5883L_H
+
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
-#include "i2c.h"
-
-#ifndef QMC5883L_H
-#define QMC5883L_H
+#include "I2C.h"
 
 class QMC5883L
 {
