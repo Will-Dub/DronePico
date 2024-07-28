@@ -18,42 +18,53 @@ int MPU6050::init(){
     if(i2c->reg_write(MPU6050_ADDR, 0x6B, &temp_buf, 1) == 0){
         return 1;
     }
-    sleep_ms(50);
 
     // Active low pass filter
-    //temp_buf = 0x05;
+    //temp_buf = 0x03;
     //if(i2c->reg_write(MPU6050_ADDR, 0x1A, &temp_buf, 1) == 0){
     //    return 2;
     //}
 
+    // Sample rate divider
+    temp_buf = 0x04;
+    if(i2c->reg_write(MPU6050_ADDR, 0x19, &temp_buf, 1) == 0){
+        return 2;
+    }
+
     // Change le scale de la sensibilité gyro
     //temp_buf = 0x8;
-    temp_buf = 0x0;
+    temp_buf = 0x00;
     if(i2c->reg_write(MPU6050_ADDR, 0x1B, &temp_buf, 1) == 0){
         return 1;
     }
-    sleep_ms(50);
 
     // Change le scale de la sensibilité accelero
-    temp_buf = 0x0;
+    temp_buf = 0x00;
     if(i2c->reg_write(MPU6050_ADDR, 0x1C, &temp_buf, 1) == 0){
         return 1;
     }
-    sleep_ms(50);
 
     // Configure du interupt
     temp_buf = 0x00;
     if(i2c->reg_write(MPU6050_ADDR, 0x37, &temp_buf, 1) == 0){
         return 1;
     }
-    sleep_ms(50);
 
     // Active le interupt
     temp_buf = 0x01;
     if(i2c->reg_write(MPU6050_ADDR, 0x38, &temp_buf, 1) == 0){
         return 1;
     }
-    sleep_ms(50);
+    
+    // Set offsets to zero
+    if (i2c->reg_write(MPU6050_ADDR, 0x06, 0x00, 1) == 0 ||
+        i2c->reg_write(MPU6050_ADDR, 0x07, 0x00, 1) == 0 ||
+        i2c->reg_write(MPU6050_ADDR, 0x08, 0x00, 1) == 0 ||
+        i2c->reg_write(MPU6050_ADDR, 0x09, 0x00, 1) == 0 ||
+        i2c->reg_write(MPU6050_ADDR, 0x0A, 0x00, 1) == 0 ||
+        i2c->reg_write(MPU6050_ADDR, 0x0B, 0x00, 1) == 0) {
+        return 5;
+    }
 
     return 0;
 }
@@ -93,7 +104,7 @@ int MPU6050::get_data_gyro(){
 }
 
 int MPU6050::calibrate(){
-    float temp_rateCalibrationRoll, temp_rateCalibrationPitch, temp_rateCalibrationYaw;
+    float temp_rateCalibrationRoll, temp_rateCalibrationPitch, temp_rateCalibrationYaw = 0;
     for(int i=0; i<1000; i++){
         if(get_data_gyro() != 0){
             return 1;

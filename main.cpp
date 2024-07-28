@@ -80,6 +80,10 @@ void readSensorsAndCalculateBasicData(){
     float rateCalibrationRoll, rateCalibrationPitch, rateCalibrationYaw;
     SensorData local_sensor_data;
 
+    //Variable init
+    data_ready_mpu6050 = false;
+    data_ready_qmc5883l = false;
+
     //----------------------------------------------------------------------
     //Get arguments
     UART* uart_zero = reinterpret_cast<UART*>(multicore_fifo_pop_blocking());
