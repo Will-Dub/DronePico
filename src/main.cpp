@@ -12,7 +12,7 @@
 #include "MPU6050.h"
 #include "QMC5883L.h"
 #include "UART.h"
-#include "TinyGPS.h"
+#include "TinyGPS++.h"
 #include "Message.h"
 
 #define PI 3.14159265358979323846
@@ -101,7 +101,7 @@ void readSensorsAndCalculateBasicData(){
 
     QMC5883L qmc5883l(&i2c);
 
-    TinyGPS gps;
+    TinyGPSPlus gps;
 
     //----------------------------------------------------------------------
     //Initialise the sensors
@@ -201,7 +201,9 @@ void readSensorsAndCalculateBasicData(){
         while (uart_is_readable(uart1)) {
             char c = uart_getc(uart1);
             gps.encode(c);
-            new_data = true;
+            if (gps.location.isUpdated()) {
+                new_data = true;
+            }
         }
         
         //----------------------------------------------------------------------
@@ -220,12 +222,9 @@ void readSensorsAndCalculateBasicData(){
             local_sensor_data.roll = atan2(local_sensor_data.accel_y, sqrt(local_sensor_data.accel_x * local_sensor_data.accel_x + local_sensor_data.accel_z * local_sensor_data.accel_z)) * RAD180;
             local_sensor_data.yaw = atan2(local_sensor_data.mag_y, local_sensor_data.mag_x) * RAD180;
 
-            float flat, flon;
-            unsigned long age;
-            gps.f_get_position(&flat, &flon, &age);
-
-            local_sensor_data.gps_latitude = flat;
-            local_sensor_data.gps_longitude = flon;
+            local_sensor_data.gps_latitude = gps.location.lat();
+            local_sensor_data.gps_longitude = gps.location.lng();
+            local_sensor_data.gps_altitude = gps.altitude.meters();
         }
 
         local_sensor_data.uart_gps_connected = data_received_within_timeout(uart_gps.get_last_receive_time());
@@ -307,7 +306,7 @@ int main() {
     mutex_init(&zero_mutex);
 
     //Initialise communication with pizero
-    UART uart_zero(uart0, 460800, 1, 0);
+    UART uart_zero(uart0, 230400, 1, 0);
 
     //Commence le core 1
     multicore_launch_core1(readSensorsAndCalculateBasicData);

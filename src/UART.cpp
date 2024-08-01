@@ -13,6 +13,7 @@ UART::UART(uart_inst_t *uart_p, uint baudrate_p, uint rx_pin_p, uint tx_pin_p):
 
         uart_set_format(instance, 8, 1, UART_PARITY_NONE);
 
+        uart_set_hw_flow(instance, false, false);
         uart_set_fifo_enabled(instance, true);
     }
 
