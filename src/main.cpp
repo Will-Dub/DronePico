@@ -225,6 +225,8 @@ void readSensorsAndCalculateBasicData(){
             local_sensor_data.gps_latitude = gps.location.lat();
             local_sensor_data.gps_longitude = gps.location.lng();
             local_sensor_data.gps_altitude = gps.altitude.meters();
+            local_sensor_data.gps_kmph = gps.speed.kmph();
+            local_sensor_data.gps_course_deg = gps.course.deg();
         }
 
         local_sensor_data.uart_gps_connected = data_received_within_timeout(uart_gps.get_last_receive_time());
@@ -292,6 +294,8 @@ void controlMotors(UART* uart_zero){
 
         //----------------------------------------------------------------------
         //Send a copy of the sensor data to the pi zero
+
+        sleep_ms(100);
     }
 }
 
