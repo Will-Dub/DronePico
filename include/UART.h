@@ -17,44 +17,44 @@
 class UART
 {
     public:
-    /**
-     * Initialise le uart avec l'instance, le rate et les pins
-     */
-    UART(uart_inst_t *uart, uint baudrate, uint rx_pin, uint tx_pin);
+        /**
+         * Initialise le uart avec l'instance, le rate et les pins
+         */
+        UART(uart_inst_t *uart, uint baudrate, uint rx_pin, uint tx_pin);
 
-    /*
-    * Envoie un message qui fini avec \n(automatique)
-    */
-    void writeLine(const std::string& str);
+        void flush();
 
-    void write(const std::string& str);
+        std::string getReceivedData();
 
-    void writeBlock(const uint8_t* data, uint size);
+        std::vector<std::string> getReceivedLines();
 
-    void readData();
+        std::optional<Message> getReceiveMessage();
 
-    std::string getReceivedData();
+        uint64_t get_last_receive_time();
 
-    std::vector<std::string> getReceivedLines();
+        bool isNewDataReceived();
 
-    void flush();
+        void readData();
 
-    bool isNewDataReceived();
+        /*
+        * Envoie un message qui fini avec \n(automatique)
+        */
+        void writeLine(const std::string& str);
 
-    uint64_t get_last_receive_time();
+        void write(const std::string& str);
 
-    void writeMessage(const Message &message);
+        void writeBlock(const uint8_t* data, uint size);
 
-    std::optional<Message> getReceiveMessage();
+        void writeMessage(const Message &message);
 
     private:
-    absolute_time_t last_receive_time;
-    uart_inst_t *instance;
-    uint baudrate;
-    uint rx_pin;
-    uint tx_pin;
-    bool new_data_received;
-    std::string received_data;
+        absolute_time_t last_receive_time;
+        uart_inst_t *instance;
+        uint baudrate;
+        uint rx_pin;
+        uint tx_pin;
+        bool new_data_received;
+        std::string received_data;
 };
 
 #endif

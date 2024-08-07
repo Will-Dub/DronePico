@@ -27,7 +27,7 @@ const int timeout = 10000;
 volatile bool data_ready_qmc5883l = false;
 volatile bool data_ready_mpu6050 = false;
 
-volatile SensorData shared_sensor_data;
+volatile PositionData shared_sensor_data;
 volatile bool shared_sensor_data_ready = false;
 mutex_t data_mutex;
 mutex_t zero_mutex;
@@ -78,7 +78,7 @@ void readSensorsAndCalculateBasicData(){
     bool error_qmc5883l;
     bool new_data_gps;
     float rateCalibrationRoll, rateCalibrationPitch, rateCalibrationYaw;
-    SensorData local_sensor_data;
+    PositionData local_sensor_data = {};
 
     //Variable init
     data_ready_mpu6050 = false;
@@ -209,7 +209,7 @@ void readSensorsAndCalculateBasicData(){
         //----------------------------------------------------------------------
         //Process and store the data
         if(new_data){
-            local_sensor_data.accel_x = mpu6050.accelX_processed;
+            /*local_sensor_data.accel_x = mpu6050.accelX_processed;
             local_sensor_data.accel_y = mpu6050.accelY_processed;
             local_sensor_data.accel_z = mpu6050.accelZ_processed;
             local_sensor_data.gyro_x = mpu6050.gyroX_processed;
@@ -221,22 +221,22 @@ void readSensorsAndCalculateBasicData(){
             local_sensor_data.pitch = atan2(local_sensor_data.accel_x, sqrt(local_sensor_data.accel_y * local_sensor_data.accel_y + local_sensor_data.accel_z * local_sensor_data.accel_z)) * RAD180;
             local_sensor_data.roll = atan2(local_sensor_data.accel_y, sqrt(local_sensor_data.accel_x * local_sensor_data.accel_x + local_sensor_data.accel_z * local_sensor_data.accel_z)) * RAD180;
             local_sensor_data.yaw = atan2(local_sensor_data.mag_y, local_sensor_data.mag_x) * RAD180;
-
+            */
             local_sensor_data.gps_latitude = gps.location.lat();
             local_sensor_data.gps_longitude = gps.location.lng();
             local_sensor_data.gps_altitude = gps.altitude.meters();
             local_sensor_data.gps_kmph = gps.speed.kmph();
             local_sensor_data.gps_course_deg = gps.course.deg();
         }
-
+        /*
         local_sensor_data.uart_gps_connected = data_received_within_timeout(uart_gps.get_last_receive_time());
         local_sensor_data.i2c_connected = data_received_within_timeout(i2c.get_last_receive_time());
-        local_sensor_data.uart_zero_connected = data_received_within_timeout(uart_zero->get_last_receive_time());
+        local_sensor_data.uart_zero_connected = data_received_within_timeout(uart_zero->get_last_receive_time());*/
 
         //----------------------------------------------------------------------
         //Send the data to the other core
         mutex_enter_blocking(&data_mutex);
-        memcpy((void*)&shared_sensor_data, &local_sensor_data, sizeof(SensorData));
+        memcpy((void*)&shared_sensor_data, &local_sensor_data, sizeof(PositionData));
         shared_sensor_data_ready = true;
         mutex_exit(&data_mutex);
     }
@@ -246,7 +246,7 @@ void readSensorsAndCalculateBasicData(){
 void controlMotors(UART* uart_zero){
     //----------------------------------------------------------------------
     //Variable declaration
-    SensorData local_sensor_data;
+    PositionData local_sensor_data;
 
     log(uart_zero, "CORE INIT END", &zero_mutex);
 
@@ -271,7 +271,7 @@ void controlMotors(UART* uart_zero){
         if (data_ready) {
             // Acquire lock, read shared data, and release lock
             mutex_enter_blocking(&data_mutex);
-            memcpy(&local_sensor_data, (void*)&shared_sensor_data, sizeof(SensorData));
+            memcpy(&local_sensor_data, (void*)&shared_sensor_data, sizeof(PositionData));
             shared_sensor_data_ready = false;
             mutex_exit(&data_mutex);
 
@@ -279,8 +279,8 @@ void controlMotors(UART* uart_zero){
             //uart_zero->writeBlock((const uint8_t *)&local_sensor_data, sizeof(SensorData));
 
             Message message;
-            message.type = MessageType::SensorData;
-            message.data.sensor_data = local_sensor_data;
+            message.type = MessageType::PositionData;
+            message.data.position_data = local_sensor_data;
 
             uart_zero->writeMessage(message);
             mutex_exit(&zero_mutex);
