@@ -1,0 +1,57 @@
+#ifndef UART_H
+#define UART_H
+
+#include <stdio.h>
+#include <string>
+#include "pico/stdlib.h"
+#include "hardware/uart.h"
+#include "hardware/gpio.h"
+#include "hardware/irq.h"
+#include "pico/multicore.h"
+#include <atomic>
+#include <vector>
+#include <optional>
+#include <algorithm>
+#include "Message.h"
+
+//Interface pour uart
+class UART
+{
+    public:
+    /**
+     * Initialise le uart avec l'instance, le rate et les pins
+     */
+    UART(uart_inst_t *uart, uint baudrate, uint rx_pin, uint tx_pin);
+
+    void flush();
+
+    uint64_t get_last_receive_time();
+
+    std::optional<Message> getReceiveMessage();
+
+    bool isNewDataReceived();
+
+    void readData();
+
+    /*
+    * Envoie un message qui fini avec \n(automatique)
+    */
+    void writeLine(const std::string& str);
+
+    void write(const std::string& str);
+
+    void writeBlock(const uint8_t* data, uint size);
+
+    void writeMessage(const Message &message);
+
+    private:
+    absolute_time_t last_receive_time;
+    uart_inst_t *instance;
+    uint baudrate;
+    uint rx_pin;
+    uint tx_pin;
+    bool new_data_received;
+    std::vector<uint8_t> received_data;
+};
+
+#endif
