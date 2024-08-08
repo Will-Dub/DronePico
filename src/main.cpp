@@ -27,16 +27,11 @@ const int timeout = 10000;
 volatile bool data_ready_qmc5883l = false;
 volatile bool data_ready_mpu6050 = false;
 
-volatile PositionData shared_sensor_data;
-volatile bool shared_sensor_data_ready = false;
-mutex_t data_mutex;
-mutex_t zero_mutex;
-
 /*******************************************************************************
  * Function Definitions
  */
 
-void log(UART* uart_out, const std::string& data, mutex_t* uart_mutex = nullptr, LogType dataType = LogType::LOG_INFO) {
+void log(UART* uart_out, const std::string& data, LogType dataType = LogType::LOG_INFO) {
     Message message;
     message.type = MessageType::LogData;
     message.data.log_data.type = dataType;
@@ -44,15 +39,7 @@ void log(UART* uart_out, const std::string& data, mutex_t* uart_mutex = nullptr,
     std::strncpy(message.data.log_data.message, data.c_str(), sizeof(message.data.log_data.message) - 1);
     message.data.log_data.message[sizeof(message.data.log_data.message) - 1] = '\0';
 
-    if (uart_mutex != nullptr) {
-        mutex_enter_blocking(uart_mutex);
-    }
-
     uart_out->writeMessage(message);
-
-    if (uart_mutex != nullptr) {
-        mutex_exit(uart_mutex);
-    }
 }
 
 void interrupt_core1(uint gpio, uint32_t events) {
@@ -71,56 +58,48 @@ bool data_received_within_timeout(uint64_t last_receive_time) {
     return (current_ms - last_ms <= timeout);
 }
 
-// Lis les données des sensors et fait les calcul de stabilisation
-void readSensorsAndCalculateBasicData(){
+/*******************************************************************************
+ * Main
+ */
+int main() {
+    stdio_init_all();
+
     //----------------------------------------------------------------------
     //Variable declaration
     bool error_qmc5883l;
-    bool new_data_gps;
-    float rateCalibrationRoll, rateCalibrationPitch, rateCalibrationYaw;
-    PositionData local_sensor_data = {};
+    PositionData position_data = {};
+    SensorData sensor_data = {};
+    I2C i2c = I2C(i2c1, 26, 27, 100*1000);
+    MPU6050 mpu6050(&i2c);
+    QMC5883L qmc5883l(&i2c);
+    UART uart_zero(uart0, 230400, 1, 0);
+    UART uart_gps(uart1, 9600, RXPin_GPS, TXPin_GPS);
+    TinyGPSPlus gps;
 
     //Variable init
     data_ready_mpu6050 = false;
     data_ready_qmc5883l = false;
 
-    //----------------------------------------------------------------------
-    //Get arguments
-    UART* uart_zero = reinterpret_cast<UART*>(multicore_fifo_pop_blocking());
-
-    //----------------------------------------------------------------------
-    //Assign the sensor variable
-    //SDA = 12, SCL = 13
-    I2C i2c = I2C(i2c1, 26, 27, 100*1000);
-
-    i2c.setup();
-
-    UART uart_gps(uart1, 9600, RXPin_GPS, TXPin_GPS);
-
-    MPU6050 mpu6050(&i2c);
-
-    QMC5883L qmc5883l(&i2c);
-
-    TinyGPSPlus gps;
 
     //----------------------------------------------------------------------
     //Initialise the sensors
     //MPU 6050 initialisation + calibration
+    i2c.setup();
 
-    log(uart_zero, "INIT MPU6050", &zero_mutex);
+    log(&uart_zero, "INIT MPU6050");
     if(mpu6050.init()){
-        log(uart_zero, "MPU6050 ERREUR DURANT INIT", &zero_mutex, LogType::LOG_CRITICAL);
+        log(&uart_zero, "MPU6050 ERREUR DURANT INIT", LogType::LOG_CRITICAL);
     }
-    log(uart_zero, "FIN INIT MPU6050", &zero_mutex);
+    log(&uart_zero, "FIN INIT MPU6050");
 
-    log(uart_zero, "CALIBRATING MPU6050...", &zero_mutex);
+    log(&uart_zero, "CALIBRATING MPU6050...");
     if(mpu6050.calibrate()){
-        log(uart_zero, "MPU6050 ERREUR DURANT LA CALIBRATION", &zero_mutex, LogType::LOG_CRITICAL);
+        log(&uart_zero, "MPU6050 ERREUR DURANT LA CALIBRATION", LogType::LOG_CRITICAL);
     }
-    log(uart_zero, "CALIBRATING FINISHED MPU6050", &zero_mutex);
+    log(&uart_zero, "CALIBRATING FINISHED MPU6050");
 
     //QMC6883L initialisation + config
-    log(uart_zero, "CONFIG DEBUT QMC5883L", &zero_mutex);
+    log(&uart_zero, "CONFIG DEBUT QMC5883L");
     if (!qmc5883l.begin())
     {
         error_qmc5883l = true;
@@ -149,10 +128,10 @@ void readSensorsAndCalculateBasicData(){
             error_qmc5883l = false;
         }
     }
-    log(uart_zero, "CONFIG FINI QMC5883L", &zero_mutex);
+    log(&uart_zero, "CONFIG FINI QMC5883L");
 
     if(error_qmc5883l){
-        log(uart_zero, "CONFIG QMC5883L FAILED", &zero_mutex, LogType::LOG_CRITICAL);
+        log(&uart_zero, "CONFIG QMC5883L FAILED", LogType::LOG_CRITICAL);
     }
 
     //Set interupts
@@ -163,24 +142,23 @@ void readSensorsAndCalculateBasicData(){
     gpio_set_irq_enabled_with_callback(MPU6050_DATA_READY_PIN, GPIO_IRQ_EDGE_RISE, true, &interrupt_core1);
 
     //----------------------------------------------------------------------
-    log(uart_zero, "CORE INIT END", &zero_mutex);
+    log(&uart_zero, "INIT END");
 
     //----------------------------------------------------------------------
     //MAIN LOOP
+    int messageCount = 0;
+    auto startTime = std::chrono::steady_clock::now();
+
     while (true) {
         bool new_data = false;
         //----------------------------------------------------------------------
-        //Read the data
-        //Data from zero
-        mutex_enter_blocking(&zero_mutex);
-        uart_zero->readData();
-        mutex_exit(&zero_mutex);
+        //Read the sensor data
 
-        //Data from qmc
+        //Data from qmc5883
         if(data_ready_qmc5883l){
             if (!qmc5883l.readData())
             {
-                log(uart_zero, "QMC error: " + qmc5883l.lastError(), &zero_mutex, LogType::LOG_ERROR);
+                log(&uart_zero, "QMC error: " + qmc5883l.lastError(), LogType::LOG_ERROR);
             }else{
                 new_data = true;
             }
@@ -190,7 +168,7 @@ void readSensorsAndCalculateBasicData(){
         //Data from mpu6050
         if(data_ready_mpu6050){
             if(mpu6050.get_data_accel() || mpu6050.get_data_gyro()){
-                log(uart_zero, "MPU6050 ERREUR DURANT LECTURE", &zero_mutex, LogType::LOG_ERROR);
+                log(&uart_zero, "MPU6050 ERREUR DURANT LECTURE", LogType::LOG_ERROR);
             }else{
                 new_data = true;
             }
@@ -209,24 +187,24 @@ void readSensorsAndCalculateBasicData(){
         //----------------------------------------------------------------------
         //Process and store the data
         if(new_data){
-            /*local_sensor_data.accel_x = mpu6050.accelX_processed;
-            local_sensor_data.accel_y = mpu6050.accelY_processed;
-            local_sensor_data.accel_z = mpu6050.accelZ_processed;
-            local_sensor_data.gyro_x = mpu6050.gyroX_processed;
-            local_sensor_data.gyro_y = mpu6050.gyroY_processed;
-            local_sensor_data.gyro_z = mpu6050.gyroZ_processed;
-            local_sensor_data.mag_x = qmc5883l.calibratedDataX();
-            local_sensor_data.mag_y = qmc5883l.calibratedDataY();
-            local_sensor_data.mag_z = qmc5883l.calibratedDataZ();
-            local_sensor_data.pitch = atan2(local_sensor_data.accel_x, sqrt(local_sensor_data.accel_y * local_sensor_data.accel_y + local_sensor_data.accel_z * local_sensor_data.accel_z)) * RAD180;
-            local_sensor_data.roll = atan2(local_sensor_data.accel_y, sqrt(local_sensor_data.accel_x * local_sensor_data.accel_x + local_sensor_data.accel_z * local_sensor_data.accel_z)) * RAD180;
-            local_sensor_data.yaw = atan2(local_sensor_data.mag_y, local_sensor_data.mag_x) * RAD180;
-            */
-            local_sensor_data.gps_latitude = gps.location.lat();
-            local_sensor_data.gps_longitude = gps.location.lng();
-            local_sensor_data.gps_altitude = gps.altitude.meters();
-            local_sensor_data.gps_kmph = gps.speed.kmph();
-            local_sensor_data.gps_course_deg = gps.course.deg();
+            sensor_data.accel_x = mpu6050.accelX_processed;
+            sensor_data.accel_y = mpu6050.accelY_processed;
+            sensor_data.accel_z = mpu6050.accelZ_processed;
+            sensor_data.gyro_x = mpu6050.gyroX_processed;
+            sensor_data.gyro_y = mpu6050.gyroY_processed;
+            sensor_data.gyro_z = mpu6050.gyroZ_processed;
+            sensor_data.mag_x = qmc5883l.calibratedDataX();
+            sensor_data.mag_y = qmc5883l.calibratedDataY();
+            sensor_data.mag_z = qmc5883l.calibratedDataZ();
+            sensor_data.pitch = atan2(sensor_data.accel_x, sqrt(sensor_data.accel_y * sensor_data.accel_y + sensor_data.accel_z * sensor_data.accel_z)) * RAD180;
+            sensor_data.roll = atan2(sensor_data.accel_y, sqrt(sensor_data.accel_x * sensor_data.accel_x + sensor_data.accel_z * sensor_data.accel_z)) * RAD180;
+            sensor_data.yaw = atan2(sensor_data.mag_y, sensor_data.mag_x) * RAD180;
+            
+            position_data.gps_latitude = gps.location.lat();
+            position_data.gps_longitude = gps.location.lng();
+            position_data.gps_altitude = gps.altitude.meters();
+            position_data.gps_kmph = gps.speed.kmph();
+            position_data.gps_course_deg = gps.course.deg();
         }
         /*
         local_sensor_data.uart_gps_connected = data_received_within_timeout(uart_gps.get_last_receive_time());
@@ -234,57 +212,21 @@ void readSensorsAndCalculateBasicData(){
         local_sensor_data.uart_zero_connected = data_received_within_timeout(uart_zero->get_last_receive_time());*/
 
         //----------------------------------------------------------------------
-        //Send the data to the other core
-        mutex_enter_blocking(&data_mutex);
-        memcpy((void*)&shared_sensor_data, &local_sensor_data, sizeof(PositionData));
-        shared_sensor_data_ready = true;
-        mutex_exit(&data_mutex);
-    }
-}
-
-// Recois les données du zero, fait des calcul avec les données des sensors et l'envoie aux moteurs
-void controlMotors(UART* uart_zero){
-    //----------------------------------------------------------------------
-    //Variable declaration
-    PositionData local_sensor_data;
-
-    log(uart_zero, "CORE INIT END", &zero_mutex);
-
-    //----------------------------------------------------------------------
-    //MAIN LOOP
-    while (true) {
-        //----------------------------------------------------------------------
         //Handle new data from pi zero
-        mutex_enter_blocking(&zero_mutex);
-        if(uart_zero->isNewDataReceived()){
-            std::string data = uart_zero->getReceivedData();
+        if(uart_zero.isNewDataReceived()){
+            std::string data = uart_zero.getReceivedData();
             //uart_zero->write(data);
         }
-        mutex_exit(&zero_mutex);
 
-        //----------------------------------------------------------------------
-        //Read sensor data from the other core
-        mutex_enter_blocking(&data_mutex);
-        bool data_ready = shared_sensor_data_ready;
-        mutex_exit(&data_mutex);
-
-        if (data_ready) {
-            // Acquire lock, read shared data, and release lock
-            mutex_enter_blocking(&data_mutex);
-            memcpy(&local_sensor_data, (void*)&shared_sensor_data, sizeof(PositionData));
-            shared_sensor_data_ready = false;
-            mutex_exit(&data_mutex);
-
-            mutex_enter_blocking(&zero_mutex);
-            //uart_zero->writeBlock((const uint8_t *)&local_sensor_data, sizeof(SensorData));
-
+        /*if (new_data) {
             Message message;
             message.type = MessageType::PositionData;
-            message.data.position_data = local_sensor_data;
+            message.data.position_data = position_data;
 
-            uart_zero->writeMessage(message);
-            mutex_exit(&zero_mutex);
-        }
+            uart_zero.writeMessage(message);
+        }*/
+
+        messageCount++;
 
         //----------------------------------------------------------------------
         //Process motor and sensor data together
@@ -295,28 +237,12 @@ void controlMotors(UART* uart_zero){
         //----------------------------------------------------------------------
         //Send a copy of the sensor data to the pi zero
 
-        sleep_ms(100);
+        auto currentTime = std::chrono::steady_clock::now();
+        auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(currentTime - startTime).count();
+        if (elapsedTime >= 5) {
+            log(&uart_zero, std::to_string(messageCount));
+            messageCount = 0;
+            startTime = std::chrono::steady_clock::now();
+        }
     }
-}
-
-/*******************************************************************************
- * Main
- */
-int main() {
-    stdio_init_all();
-
-    // Initialize the mutex
-    mutex_init(&data_mutex);
-    mutex_init(&zero_mutex);
-
-    //Initialise communication with pizero
-    UART uart_zero(uart0, 230400, 1, 0);
-
-    //Commence le core 1
-    multicore_launch_core1(readSensorsAndCalculateBasicData);
-
-    //Passe les arguments au core 1
-    multicore_fifo_push_blocking(reinterpret_cast<uint32_t>(&uart_zero));
-    
-    controlMotors(&uart_zero);
 }
