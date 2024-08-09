@@ -1,7 +1,7 @@
-#include "I2C.h"
-
 #ifndef MPU6050_H
 #define MPU6050_H
+
+#include "I2C.h"
 
 class MPU6050
 {

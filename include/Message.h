@@ -19,18 +19,49 @@ enum class MessageType {
 //-----------------------------
 //All enum used by message type
 
+struct ControlData {
+    //Each motor control
+    uint8_t motor_pwm[4];
+};
+
 enum LogType : uint8_t {
     LOG_INFO,
     LOG_ERROR,
     LOG_CRITICAL
 };
 
-// Flight mode enumeration
 enum FlightMode {
     MANUAL,
     STABILIZE,
     ALT_HOLD,
     AUTO
+};
+
+struct ModeData {
+    // State information
+    FlightMode mode;
+    bool fail_safe_triggered;
+    double desired_latitude, desired_longitude, desired_altitude, desired_speed;
+
+    // Control parameters
+    float desired_pitch, desired_roll, desired_yaw;
+};
+
+struct PositionData {
+    double gps_latitude, gps_longitude, gps_altitude, gps_kmph, gps_course_deg;
+};
+
+struct StatusData {
+    bool uart_zero_connected, uart_gps_connected, i2c_connected;
+
+    bool use_mpu6050, use_qmc5883l, use_gps, use_log;
+};
+
+struct SensorData {
+    float accel_x, accel_y, accel_z;
+    float gyro_x, gyro_y, gyro_z;
+    int16_t mag_x, mag_y, mag_z;
+    float pitch, roll, yaw;
 };
 
 enum RequestType {
@@ -43,47 +74,14 @@ enum RequestType {
 
 //-----------------------------
 //All message type
-struct ControlData {
-    //Each motor control
-    uint8_t motor_pwm[4];
-};
-
 struct LogData {
     // Log data
     LogType type;
     char message[30];
 };
 
-struct ModeData {
-    // State information
-    FlightMode mode;
-    bool fail_safe_triggered;
-    double latitude, longitude, altitude, speed;
-
-    // Control parameters
-    float desired_pitch, desired_roll, desired_yaw;
-};
-
-struct PositionData {
-    double gps_latitude, gps_longitude, gps_altitude, gps_kmph, gps_course_deg;
-};
-
 struct RequestData{
     RequestType requestType;
-};
-
-struct StatusData {
-    bool uart_zero_connected, uart_gps_connected, i2c_connected;
-
-    bool use_mpu6050, use_qmc5883l, use_gps, use_log;
-    bool get_sensor_data, get_position_data;
-};
-
-struct SensorData {
-    float accel_x, accel_y, accel_z;
-    float gyro_x, gyro_y, gyro_z;
-    int16_t mag_x, mag_y, mag_z;
-    float pitch, roll, yaw;
 };
 
 // Unified message structure
