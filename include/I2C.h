@@ -15,7 +15,7 @@ class I2C
     
       I2C(i2c_inst_t* i2c_port, const uint sda_pin, const uint scl_pin, int hz);
 
-      uint64_t get_last_receive_time();
+      uint64_t getLastReceiveTime();
 
       void setup();
 
@@ -32,10 +32,10 @@ class I2C
          const uint8_t nbytes);
 
    private:
-      absolute_time_t last_receive_time;
+      absolute_time_t lastReceiveTime;
       const int hz;
-      const uint sda_pin;
-      const uint scl_pin;
+      const uint SDA_PIN;
+      const uint SCL_PIN;
       i2c_inst_t *i2c_port;
    
 };

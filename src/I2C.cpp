@@ -1,21 +1,21 @@
 #include "I2C.h"
 #include <cstdint>
 
-I2C::I2C(i2c_inst_t* i2c_port, const uint sda_pin, const uint scl_pin, int hz)
+I2C::I2C(i2c_inst_t* i2c_port, const uint SDA_PIN, const uint SCL_PIN, int hz)
     : i2c_port(i2c_port),
-    sda_pin(sda_pin),
-    scl_pin(scl_pin),
+    SDA_PIN(SDA_PIN),
+    SCL_PIN(SCL_PIN),
     hz(hz){}
 
 void I2C::setup(){
     i2c_init(i2c_port, hz);
 
     // Initialize I2C pins
-    gpio_set_function(sda_pin, GPIO_FUNC_I2C);
-    gpio_set_function(scl_pin, GPIO_FUNC_I2C);
+    gpio_set_function(SDA_PIN, GPIO_FUNC_I2C);
+    gpio_set_function(SCL_PIN, GPIO_FUNC_I2C);
 
-    gpio_pull_up(sda_pin);
-    gpio_pull_up(scl_pin);
+    gpio_pull_up(SDA_PIN);
+    gpio_pull_up(SCL_PIN);
 }
 
 // Write 1 byte to the specified register
@@ -68,10 +68,10 @@ int I2C::reg_read(
         return 0;
     }
     
-    last_receive_time = get_absolute_time();
+    lastReceiveTime = get_absolute_time();
     return nbytes;
 }
 
-uint64_t I2C::get_last_receive_time() {
-    return to_us_since_boot(last_receive_time);
+uint64_t I2C::getLastReceiveTime() {
+    return to_us_since_boot(lastReceiveTime);
 }

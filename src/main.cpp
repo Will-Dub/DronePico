@@ -54,26 +54,35 @@ int main() {
         drone.sensorRead();
         
         //----------------------------------------------------------------------
-        //Process and store the data
+        //Handle new data from the zero
+        std::optional<Message> messageReceivedOpt = drone.receiveMessage();
+
+        if(messageReceivedOpt.has_value()){
+            Message messageReceived = messageReceivedOpt.value();
+            if(messageReceived.type == MessageType::RequestData){
+                switch(messageReceived.data.requestData.requestType) {
+                    case RequestType::POSITION_REQUEST:
+                        Message messagePosition;
+                        messagePosition.type = MessageType::PositionData;
+                        messagePosition.data.positionData = drone.getPositionData();
+
+                        drone.sendMessage(messagePosition);
+                        break;
+                    case RequestType::SENSOR_REQUEST:
+                        Message messageSensor;
+                        messageSensor.type = MessageType::SensorData;
+                        messageSensor.data.sensorData = drone.getSensorData();
+
+                        drone.sendMessage(messageSensor);
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
 
         //----------------------------------------------------------------------
-        //Handle new data from pi zero
-
-        if (drone.isNewPositionData()) {
-            Message message;
-            message.type = MessageType::PositionData;
-            message.data.position_data = drone.getPositionData();
-
-            drone.sendMessage(message);
-        }
-
-        if (drone.isNewSensorData()) {
-            Message message;
-            message.type = MessageType::SensorData;
-            message.data.sensor_data = drone.getSensorData();
-
-            drone.sendMessage(message);
-        }
+        //Handle new data from sensor
 
         messageCount++;
 

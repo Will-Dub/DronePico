@@ -11,6 +11,7 @@
 #include <atomic>
 #include <vector>
 #include <optional>
+#include <algorithm>
 #include "Message.h"
 
 //Interface pour uart
@@ -30,7 +31,7 @@ class UART
 
         std::optional<Message> getReceiveMessage();
 
-        uint64_t get_last_receive_time();
+        uint64_t getLastReceiveTime();
 
         bool isNewDataReceived();
 
@@ -48,13 +49,14 @@ class UART
         void writeMessage(const Message &message);
 
     private:
-        absolute_time_t last_receive_time;
+        absolute_time_t lastReceiveTime;
         uart_inst_t *instance;
         uint baudrate;
-        uint rx_pin;
-        uint tx_pin;
-        bool new_data_received;
-        std::string received_data;
+        uint rxPin;
+        uint txPin;
+        bool newDataReceived;
+        std::string receivedData;
+        const size_t MAX_BUFFER_SIZE = 100;
 };
 
 #endif

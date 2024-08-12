@@ -8,10 +8,10 @@ class MPU6050
     public:
 
         int16_t gyroX, gyroY, gyroZ;
-        float gyroX_processed, gyroY_processed, gyroZ_processed;
+        float gyroXProcessed, gyroYProcessed, gyroZProcessed;
 
         int16_t accelX, accelY, accelZ;
-        float accelX_processed, accelY_processed, accelZ_processed;
+        float accelXProcessed, accelYProcessed, accelZProcessed;
 
         static const uint8_t MPU6050_ADDR = 0x68;
         static const uint8_t REG_DEVID = 0x00;
@@ -27,16 +27,16 @@ class MPU6050
 
         int calibrate();
 
-        int get_data_accel();
+        int getDataAccel();
 
-        int get_data_gyro();
+        int getDataGyro();
 
         int init();
 
     private:
         I2C* i2c;
 
-        bool is_calibrated;
+        bool isCalibrated;
 
         //Calibrations
         float rateCalibrationRoll, rateCalibrationPitch, rateCalibrationYaw;
