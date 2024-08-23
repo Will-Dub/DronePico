@@ -2,12 +2,16 @@
 #include <sstream>
 #include <cstdio>
 #include <cstring>
+#include <cctype>
 #include <cmath>
 #include <string>
 
 #include "pico/stdlib.h"
 #include "UART.h"
 #include "Drone.h"
+
+#include "pico/binary_info.h"
+#include "LoRa-RP2040.h"
 
 Drone* globalDrone;
 
@@ -24,11 +28,90 @@ void interrupt(uint gpio, uint32_t events) {
     }
 }
 
+
+
+
+
+
+
+
+
+
+uint8_t msgCount = 0;
+
+void sendMessage(string outgoing) {
+  int n = outgoing.length();
+  char send[n+1];
+  strcpy(send,outgoing.c_str());
+  printf("Sending: %s\n",send);
+  LoRa.beginPacket();                   // start packet
+  LoRa.write(msgCount);                 // add message ID
+  LoRa.write(5);        // add payload length
+  LoRa.write((uint8_t*)send, sizeof(send));
+  LoRa.endPacket();                     // finish packet and send it
+  msgCount++;                           // increment message ID
+  printf("-----------------SENT-----------------\n");
+  printf("Message ID: %d\n", msgCount);
+  printf("Message length: %d\n", sizeof(send)+1);
+  printf("Message: %s\n", send);
+  printf("----------------------------------\n");
+}
+
+void onReceive(int packetSize) {
+  if (packetSize == 0) return;          // if there's no packet, return
+  // read packet header uint8_ts:
+  uint8_t incomingMsgId = LoRa.read();     // incoming msg ID
+  uint8_t incomingLength = LoRa.read();    // incoming msg length
+
+  string incoming = "";
+
+  while (LoRa.available()) {
+    incoming += (char)LoRa.read();
+  }
+  printf("-----------------RECEIVED-----------------\n");
+  if (incomingLength != incoming.length()) {   // check length for error
+    printf("ERROR: message length does not match length\n");
+  }
+
+  // if message is for this device, or broadcast, print details:
+  printf("Message ID: %d\n", incomingMsgId);
+  printf("Supposed Message length: %d\n", incomingLength);
+  printf("Message length: %d\n", incoming.length());
+  printf("Message: %s\n", incoming.c_str());
+  globalDrone->log("Received: " + incoming);
+  printf("\n");
+  //printf("RSSI: %d\n", LoRa.packetRssi());
+  //printf("Snr: %d\n", LoRa.packetSnr());
+  printf("----------------------------------\n");
+}
+
+
+
+
+
+
+
+
+
+
+
 /*******************************************************************************
  * Main
  */
 int main() {
     stdio_init_all();
+
+    printf("\nLoRa Duplex\n");
+
+    // override the default CS, reset, and IRQ pins (optional)
+    // LoRa.setPins(csPin, resetPin, irqPin);// set CS, reset, IRQ pin
+
+    if (!LoRa.begin(433.425E6)) {             // initialize ratio at 915 MHz
+        printf("LoRa init failed. Check your connections.\n");
+        while (true);                       // if failed, do nothing
+    }
+
+    printf("LoRa init succeeded.\n");
 
     Drone drone = Drone();
     globalDrone = &drone;
@@ -47,7 +130,19 @@ int main() {
     int messageCount = 0;
     auto startTime = std::chrono::steady_clock::now();
 
+    long lastSendTime = 0;
+    int interval = 2000;
+
     while (true) {
+        if (to_ms_since_boot(get_absolute_time()) - lastSendTime > interval) {
+            char message[] = "HeLoRa World!";   // send a message
+            sendMessage(message);
+            lastSendTime = to_ms_since_boot(get_absolute_time());            // timestamp the message
+            interval = (rand()%2000) + 1000;    // 2-3 seconds
+        }
+        // parse for a packet, and call onReceive with the result:
+        onReceive(LoRa.parsePacket());
+
         //----------------------------------------------------------------------
         //Read the sensor data
 

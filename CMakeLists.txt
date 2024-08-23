@@ -9,27 +9,31 @@ project(dronePico C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
+# Initialize Pico SDK
 pico_sdk_init()
 
 # Specify the source and include directories
 include_directories(${CMAKE_SOURCE_DIR}/include)
 file(GLOB SOURCES ${CMAKE_SOURCE_DIR}/src/*.cpp)
 
+# Add subdirectories
+add_subdirectory(pico-lora/src)
+
 # Tell executable file
 add_executable(${PROJECT_NAME} src/main.cpp ${SOURCES})
 
-# Link to lib
+# Link to libraries
 target_link_libraries(${PROJECT_NAME}
     pico_stdlib
     hardware_i2c
     hardware_uart
     hardware_sync
-    pico_multicore
+    LoRa_pico_lib
 )
 
 # Create map/bin/hex/uf2 file
 pico_add_extra_outputs(${PROJECT_NAME})
 
 # USB output, disable UART output
-pico_enable_stdio_usb(${PROJECT_NAME} 0)
+pico_enable_stdio_usb(${PROJECT_NAME} 1)
 pico_enable_stdio_uart(${PROJECT_NAME} 0)

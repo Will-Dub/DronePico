@@ -4,7 +4,7 @@
         {
             "name": "Pico Debug",
             "cwd": "${workspaceRoot}",
-            "executable": "${command:cmake.launchTargetPath}",
+            "executable": "${workspaceFolder}/build/dronePico.elf",
             "request": "launch",
             "type": "cortex-debug",
             "servertype": "openocd",
@@ -21,7 +21,8 @@
             "postRestartCommands": [
                 "break main",
                 "continue"
-            ]
+            ],
+            "preLaunchTask":"build"
         }
     ]
 }

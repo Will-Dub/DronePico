@@ -22,11 +22,11 @@
 #define PI 3.14159265358979323846
 #define RAD180 (180 * PI)
 
-static const int RXPin_GPS = 9, TXPin_GPS = 8;
+static const int RXPin_GPS = 5, TXPin_GPS = 4;
 static const int RXPin_ZERO = 1, TXPin_ZERO = 0;
 static const int SdaPin_I2C = 26, SclPin_I2C = 27;
-const char MPU6050_DATA_READY_PIN = 17;
-const char QMC5883L_DATA_READY_PIN = 16;
+const char MPU6050_DATA_READY_PIN = 14;
+const char QMC5883L_DATA_READY_PIN = 15;
 
 class Drone
 {

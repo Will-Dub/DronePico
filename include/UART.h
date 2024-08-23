@@ -7,7 +7,6 @@
 #include "hardware/uart.h"
 #include "hardware/gpio.h"
 #include "hardware/irq.h"
-#include "pico/multicore.h"
 #include <atomic>
 #include <vector>
 #include <optional>
