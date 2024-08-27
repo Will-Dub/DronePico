@@ -110,11 +110,15 @@ void Drone::sendMessage(Message message){
     uartZero.writeMessage(message);
 }
 
+void Drone::sendDataPacket(DataPacket dataPacket){
+    uartZero.writeDataPacket(dataPacket);
+}
+
 std::optional<Message> Drone::receiveMessage(){
     uartZero.readData();
     
     if(uartZero.isNewDataReceived()){
-        return uartZero.getReceiveMessage();
+        return uartZero.getReceivedMessage();
     }
 
     return std::nullopt;

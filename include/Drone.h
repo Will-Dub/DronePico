@@ -18,6 +18,7 @@
 #include "UART.h"
 #include "TinyGPS++.h"
 #include "Message.h"
+#include "Esc.h"
 
 #define PI 3.14159265358979323846
 #define RAD180 (180 * PI)
@@ -68,6 +69,8 @@ class Drone
         StatusData getStatusData();
 
         void sendMessage(Message message);
+
+        void sendDataPacket(DataPacket dataPacket);
 
         std::optional<Message> receiveMessage();
 

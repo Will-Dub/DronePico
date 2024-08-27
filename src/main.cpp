@@ -106,10 +106,10 @@ int main() {
     // override the default CS, reset, and IRQ pins (optional)
     // LoRa.setPins(csPin, resetPin, irqPin);// set CS, reset, IRQ pin
 
-    if (!LoRa.begin(433.425E6)) {             // initialize ratio at 915 MHz
+    /*if (!LoRa.begin(433.425E6)) {             // initialize ratio at 915 MHz
         printf("LoRa init failed. Check your connections.\n");
         while (true);                       // if failed, do nothing
-    }
+    }*/
 
     printf("LoRa init succeeded.\n");
 
@@ -133,8 +133,13 @@ int main() {
     long lastSendTime = 0;
     int interval = 2000;
 
+    Esc esc = Esc(4);
+
     while (true) {
-        if (to_ms_since_boot(get_absolute_time()) - lastSendTime > interval) {
+        esc.init();
+        esc.setSpeedUs(1200);
+        sleep_ms(100000);
+        /*if (to_ms_since_boot(get_absolute_time()) - lastSendTime > interval) {
             char message[] = "HeLoRa World!";   // send a message
             sendMessage(message);
             lastSendTime = to_ms_since_boot(get_absolute_time());            // timestamp the message
@@ -179,7 +184,7 @@ int main() {
         //----------------------------------------------------------------------
         //Handle new data from sensor
 
-        messageCount++;
+        messageCount++;*/
 
         //----------------------------------------------------------------------
         //Process motor and sensor data together
@@ -193,6 +198,14 @@ int main() {
         auto currentTime = std::chrono::steady_clock::now();
         auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(currentTime - startTime).count();
         if (elapsedTime >= 5) {
+            std::string input = "hfhfhfhfhf";
+            std::vector<uint8_t> dataVector(input.begin(), input.end());
+            uint8_t droneId = 1;
+            uint32_t packetId = 123;
+            DataType type = DataType::TEST;
+
+            DataPacket dataPacket(droneId, packetId, type, dataVector);
+            drone.sendDataPacket(dataPacket);
             drone.log(std::to_string(messageCount));
             messageCount = 0;
             startTime = std::chrono::steady_clock::now();

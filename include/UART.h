@@ -12,6 +12,7 @@
 #include <optional>
 #include <algorithm>
 #include "Message.h"
+#include "DataPacket.h"
 
 //Interface pour uart
 class UART
@@ -28,7 +29,9 @@ class UART
 
         std::vector<std::string> getReceivedLines();
 
-        std::optional<Message> getReceiveMessage();
+        std::optional<Message> getReceivedMessage();
+
+        std::optional<DataPacket> getReceivedDataPacket();
 
         uint64_t getLastReceiveTime();
 
@@ -46,6 +49,8 @@ class UART
         void writeBlock(const uint8_t* data, uint size);
 
         void writeMessage(const Message &message);
+
+        void writeDataPacket(const DataPacket &data_packet);
 
     private:
         absolute_time_t lastReceiveTime;

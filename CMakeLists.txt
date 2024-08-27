@@ -28,6 +28,7 @@ target_link_libraries(${PROJECT_NAME}
     hardware_i2c
     hardware_uart
     hardware_sync
+    hardware_pwm
     LoRa_pico_lib
 )
 
