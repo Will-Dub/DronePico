@@ -39,9 +39,9 @@ void UART::writeMessage(const Message &message) {
 
 void UART::writeDataPacket(const DataPacket &data_packet){
     uint8_t buffer[256] = {0};
-    size_t message_size = data_packet.serialize(buffer, sizeof(buffer));
+    size_t packet_size = data_packet.serialize(buffer, sizeof(buffer));
     
-    uart_write_blocking(instance, buffer, message_size);
+    uart_write_blocking(instance, buffer, packet_size);
 }
 
 void UART::writeBlock(const uint8_t* data, uint size) {
@@ -75,7 +75,7 @@ std::vector<std::string> UART::getReceivedLines() {
 std::optional<DataPacket> UART::getReceivedDataPacket() {
     while (receivedData.size() >= 10) {
         // Find the start marker
-        auto start_it = std::find(receivedData.begin(), receivedData.end(), Message::START_MARKER);
+        auto start_it = std::find(receivedData.begin(), receivedData.end(), DataPacket::START_MARKER);
         if (start_it == receivedData.end()) {
             // No start marker found, clear all data if incomplete message
             receivedData.clear();
@@ -95,7 +95,7 @@ std::optional<DataPacket> UART::getReceivedDataPacket() {
         //Verify message length is in the range
         if (message_length > MAX_BUFFER_SIZE) {
             // Message size exceeds buffer limit, discard all data
-            auto next_start_it = std::find(start_it + 1, receivedData.end(), Message::START_MARKER);
+            auto next_start_it = std::find(start_it + 1, receivedData.end(), DataPacket::START_MARKER);
             receivedData.erase(receivedData.begin(), next_start_it);
             return std::nullopt;
         }
@@ -108,9 +108,9 @@ std::optional<DataPacket> UART::getReceivedDataPacket() {
 
         // Check the end marker
         auto end_it = start_it + total_message_size - 1;
-        if (*end_it != Message::END_MARKER) {
+        if (*end_it != DataPacket::END_MARKER) {
             // Invalid end marker, discard data up to next start marker
-            auto next_start_it = std::find(start_it + 1, receivedData.end(), Message::START_MARKER);
+            auto next_start_it = std::find(start_it + 1, receivedData.end(), DataPacket::START_MARKER);
             if (next_start_it != receivedData.end()) {
                 receivedData.erase(receivedData.begin(), next_start_it); // Discard up to next start marker
             } else {

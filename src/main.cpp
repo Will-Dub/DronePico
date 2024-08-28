@@ -14,11 +14,16 @@
 #include "LoRa-RP2040.h"
 
 Drone* globalDrone;
+string receivedData = "";
+const size_t MAX_BUFFER_SIZE = 256;
 
 /*******************************************************************************
  * Function Definitions
  */
 
+//--------------------------------------------------------------------+
+// Lora Helper
+//--------------------------------------------------------------------+
 void interrupt(uint gpio, uint32_t events) {
     if(gpio == QMC5883L_DATA_READY_PIN){
         globalDrone->setDataReadyQMC5883L();
@@ -28,70 +33,81 @@ void interrupt(uint gpio, uint32_t events) {
     }
 }
 
-
-
-
-
-
-
-
-
-
 uint8_t msgCount = 0;
 
-void sendMessage(string outgoing) {
-  int n = outgoing.length();
-  char send[n+1];
-  strcpy(send,outgoing.c_str());
-  printf("Sending: %s\n",send);
-  LoRa.beginPacket();                   // start packet
-  LoRa.write(msgCount);                 // add message ID
-  LoRa.write(5);        // add payload length
-  LoRa.write((uint8_t*)send, sizeof(send));
-  LoRa.endPacket();                     // finish packet and send it
-  msgCount++;                           // increment message ID
-  printf("-----------------SENT-----------------\n");
-  printf("Message ID: %d\n", msgCount);
-  printf("Message length: %d\n", sizeof(send)+1);
-  printf("Message: %s\n", send);
-  printf("----------------------------------\n");
+void sendDataPacket(DataPacket dataPacket) {
+    uint8_t buffer[256] = {0};
+    size_t packet_size = dataPacket.serialize(buffer, sizeof(buffer));
+    LoRa.beginPacket();
+    LoRa.write(buffer, packet_size);
+    LoRa.endPacket();
+    return;
 }
 
-void onReceive(int packetSize) {
-  if (packetSize == 0) return;          // if there's no packet, return
-  // read packet header uint8_ts:
-  uint8_t incomingMsgId = LoRa.read();     // incoming msg ID
-  uint8_t incomingLength = LoRa.read();    // incoming msg length
+std::optional<DataPacket> getReceivedDataPacket() {
+    LoRa.parsePacket();
+    while (LoRa.available()) {
+        receivedData += (char)LoRa.read();
+    }
+    while (receivedData.size() >= 10) {
+        // Find the start marker
+        auto start_it = std::find(receivedData.begin(), receivedData.end(), DataPacket::START_MARKER);
+        if (start_it == receivedData.end()) {
+            // No start marker found, clear all data if incomplete message
+            receivedData.clear();
+            return std::nullopt;
+        }
 
-  string incoming = "";
+        // Calculate the remaining data after the start marker
+        size_t remaining_data = std::distance(start_it, receivedData.end());
+        if (remaining_data < 12) {  // Minimum size check
+            return std::nullopt;
+        }
 
-  while (LoRa.available()) {
-    incoming += (char)LoRa.read();
-  }
-  printf("-----------------RECEIVED-----------------\n");
-  if (incomingLength != incoming.length()) {   // check length for error
-    printf("ERROR: message length does not match length\n");
-  }
+        // Extract the message length
+        uint32_t message_length;
+        memcpy(&message_length, &*(start_it + 7), sizeof(uint32_t));
 
-  // if message is for this device, or broadcast, print details:
-  printf("Message ID: %d\n", incomingMsgId);
-  printf("Supposed Message length: %d\n", incomingLength);
-  printf("Message length: %d\n", incoming.length());
-  printf("Message: %s\n", incoming.c_str());
-  globalDrone->log("Received: " + incoming);
-  printf("\n");
-  //printf("RSSI: %d\n", LoRa.packetRssi());
-  //printf("Snr: %d\n", LoRa.packetSnr());
-  printf("----------------------------------\n");
+        //Verify message length is in the range
+        if (message_length > MAX_BUFFER_SIZE) {
+            // Message size exceeds buffer limit, discard all data
+            auto next_start_it = std::find(start_it + 1, receivedData.end(), DataPacket::START_MARKER);
+            receivedData.erase(receivedData.begin(), next_start_it);
+            return std::nullopt;
+        }
+
+        // Ensure we have the complete message
+        size_t total_message_size = 12 + message_length;
+        if (remaining_data < total_message_size) {
+            return std::nullopt;
+        }
+
+        // Check the end marker
+        auto end_it = start_it + total_message_size - 1;
+        if (*end_it != DataPacket::END_MARKER) {
+            // Invalid end marker, discard data up to next start marker
+            auto next_start_it = std::find(start_it + 1, receivedData.end(), DataPacket::START_MARKER);
+            if (next_start_it != receivedData.end()) {
+                receivedData.erase(receivedData.begin(), next_start_it); // Discard up to next start marker
+            } else {
+                receivedData.clear(); // No more start marker found, clear all data
+            }
+            return std::nullopt;
+        }
+
+        // Extract and deserialize the message
+        std::vector<uint8_t> buffer(start_it, end_it + 1);
+        DataPacket dataPacket;
+        if (dataPacket.deserialize(buffer.data(), buffer.size())) {
+            receivedData.erase(receivedData.begin(), end_it + 1); // Remove the processed message including the end marker
+            return dataPacket;
+        } else {
+            receivedData.erase(receivedData.begin(), start_it + 1); // Move past the invalid start marker
+        }
+    }
+
+    return std::nullopt;
 }
-
-
-
-
-
-
-
-
 
 
 
@@ -101,15 +117,10 @@ void onReceive(int packetSize) {
 int main() {
     stdio_init_all();
 
-    printf("\nLoRa Duplex\n");
-
-    // override the default CS, reset, and IRQ pins (optional)
-    // LoRa.setPins(csPin, resetPin, irqPin);// set CS, reset, IRQ pin
-
-    /*if (!LoRa.begin(433.425E6)) {             // initialize ratio at 915 MHz
+    if (!LoRa.begin(433.425E6)) {
         printf("LoRa init failed. Check your connections.\n");
-        while (true);                       // if failed, do nothing
-    }*/
+        while (true);
+    }
 
     printf("LoRa init succeeded.\n");
 
@@ -131,26 +142,35 @@ int main() {
     auto startTime = std::chrono::steady_clock::now();
 
     long lastSendTime = 0;
-    int interval = 2000;
+    int interval = 5000;
 
-    Esc esc = Esc(4);
+    //Esc esc = Esc(4);
 
     while (true) {
-        esc.init();
-        esc.setSpeedUs(1200);
-        sleep_ms(100000);
+        //esc.init();
+        //esc.setSpeedUs(1200);
+
         /*if (to_ms_since_boot(get_absolute_time()) - lastSendTime > interval) {
-            char message[] = "HeLoRa World!";   // send a message
-            sendMessage(message);
+            std::string input = "hfhfhfhfhf";
+            std::vector<uint8_t> dataVector(input.begin(), input.end());
+            uint8_t droneId = 1;
+            uint32_t packetId = 123;
+            DataType type = DataType::TEST;
+
+            DataPacket dataPacket(droneId, packetId, type, dataVector);
+            sendDataPacket(dataPacket);
             lastSendTime = to_ms_since_boot(get_absolute_time());            // timestamp the message
-            interval = (rand()%2000) + 1000;    // 2-3 seconds
-        }
+        }*/
+
         // parse for a packet, and call onReceive with the result:
-        onReceive(LoRa.parsePacket());
+        std::optional<DataPacket> dataPacketOpt = getReceivedDataPacket();
+        if(dataPacketOpt.has_value()){
+            DataPacket dataPacket = dataPacketOpt.value();
+            printf("NEW PACKET!!\n");
+        }
 
         //----------------------------------------------------------------------
         //Read the sensor data
-
         drone.sensorRead();
         
         //----------------------------------------------------------------------
@@ -184,7 +204,7 @@ int main() {
         //----------------------------------------------------------------------
         //Handle new data from sensor
 
-        messageCount++;*/
+        messageCount++;
 
         //----------------------------------------------------------------------
         //Process motor and sensor data together

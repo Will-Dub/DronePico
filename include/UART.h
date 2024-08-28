@@ -60,7 +60,7 @@ class UART
         uint txPin;
         bool newDataReceived;
         std::string receivedData;
-        const size_t MAX_BUFFER_SIZE = 100;
+        const size_t MAX_BUFFER_SIZE = 256;
 };
 
 #endif
