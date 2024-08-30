@@ -22,12 +22,15 @@ class Esc
          */
         void setSpeed(float pulse_width_p);
 
+        void useKillSwitch();
+
         void stop();
 
         void init();
 
     private:
         uint current_us;
+        bool killSwitchOn = false;
         const uint PIN;
         const float MAX_US = 2000;
         const float MIN_US = 1000;

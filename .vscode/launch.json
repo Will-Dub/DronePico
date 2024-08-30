@@ -22,7 +22,10 @@
                 "break main",
                 "continue"
             ],
-            "preLaunchTask":"build"
+            "preLaunchTask":"build",
+            "openOCDLaunchCommands": [
+                "adapter speed 1000",
+            ]
         }
     ]
 }

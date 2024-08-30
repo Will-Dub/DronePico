@@ -1,12 +1,16 @@
 #include "Drone.h"
 
 Drone::Drone()
-    : i2c(i2c1, SdaPin_I2C, SclPin_I2C, 100*1000),
+    : i2c(i2c1, SDA_PIN_I2C, SCL_PIN_I2C, 100*1000),
     mpu6050(&i2c),
     qmc5883l(&i2c),
-    uartGps(uart1, 9600, RXPin_GPS, TXPin_GPS),
+    uartGps(uart1, 9600, RX_PIN_GPS, TX_PIN_GPS),
     gps(),
-    uartZero(uart0, 230400, RXPin_ZERO, TXPin_ZERO){}
+    uartZero(uart0, 230400, RX_PIN_ZERO, TX_PIN_ZERO),
+    motor1(MOTOR1_PIN),
+    motor2(MOTOR2_PIN),
+    motor3(MOTOR3_PIN),
+    motor4(MOTOR4_PIN){}
 
 void Drone::init(){
     PositionData position_data = {};
@@ -106,19 +110,15 @@ void Drone::sensorRead(){
     }
 }
 
-void Drone::sendMessage(Message message){
-    uartZero.writeMessage(message);
-}
-
-void Drone::sendDataPacket(DataPacket dataPacket){
+void Drone::SendDataPacketUart(DataPacket dataPacket){
     uartZero.writeDataPacket(dataPacket);
 }
 
-std::optional<Message> Drone::receiveMessage(){
+std::optional<DataPacket> Drone::receiveDataPacketUart(){
     uartZero.readData();
     
     if(uartZero.isNewDataReceived()){
-        return uartZero.getReceivedMessage();
+        return uartZero.getReceivedDataPacket();
     }
 
     return std::nullopt;
@@ -193,4 +193,12 @@ bool Drone::isDataReceivedWithinTimeout(uint64_t lastReceivedTime){
     uint64_t lastMs = lastReceivedTime / 1000;
 
     return (currentMs - lastMs <= timeout);
+}
+
+void Drone::motorInit(){
+    motor1.init();
+    motor2.init();
+    motor3.init();
+    motor4.init();
+    return;
 }

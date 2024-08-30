@@ -23,9 +23,10 @@
 #define PI 3.14159265358979323846
 #define RAD180 (180 * PI)
 
-static const int RXPin_GPS = 5, TXPin_GPS = 4;
-static const int RXPin_ZERO = 1, TXPin_ZERO = 0;
-static const int SdaPin_I2C = 26, SclPin_I2C = 27;
+static const int RX_PIN_GPS = 5, TX_PIN_GPS = 4;
+static const int RX_PIN_ZERO = 1, TX_PIN_ZERO = 0;
+static const int SDA_PIN_I2C = 26, SCL_PIN_I2C = 27;
+static const int MOTOR1_PIN = 28, MOTOR2_PIN = 28, MOTOR3_PIN = 28, MOTOR4_PIN = 28;
 const char MPU6050_DATA_READY_PIN = 14;
 const char QMC5883L_DATA_READY_PIN = 15;
 
@@ -68,11 +69,9 @@ class Drone
 
         StatusData getStatusData();
 
-        void sendMessage(Message message);
+        void SendDataPacketUart(DataPacket dataPacket);
 
-        void sendDataPacket(DataPacket dataPacket);
-
-        std::optional<Message> receiveMessage();
+        std::optional<DataPacket> receiveDataPacketUart();
 
         void setDataReadyQMC5883L();
 
@@ -82,26 +81,40 @@ class Drone
 
         bool isNewSensorData();
 
+        void motorInit();
+
         void log(const std::string& data, LogType dataType = LogType::LOG_INFO);
 
     private:
+        // New data
         bool dataReadyMpu6050 = false;
         bool dataReadyQmc5883l = false;
         bool newSensorData = false;
         bool newPositionData = false;
 
+        // Data
         ModeData modeData;
         PositionData positionData;
         StatusData statusData;
         SensorData sensorData;
 
+        // Component of the drone
         I2C i2c;
         MPU6050 mpu6050;
         QMC5883L qmc5883l;
         UART uartGps;
         UART uartZero;
         TinyGPSPlus gps;
+        // Behind right
+        Esc motor1;
+        // Front right
+        Esc motor2;
+        // Behind left
+        Esc motor3;
+        // Front left
+        Esc motor4;
 
+        // Error
         bool qmc5883lError = false;
         bool mpu6050Error = false;
 

@@ -5,6 +5,7 @@
 #include <cctype>
 #include <cmath>
 #include <string>
+#include <sstream>
 
 #include "pico/stdlib.h"
 #include "UART.h"
@@ -144,28 +145,11 @@ int main() {
     long lastSendTime = 0;
     int interval = 5000;
 
-    //Esc esc = Esc(4);
-
     while (true) {
-        //esc.init();
-        //esc.setSpeedUs(1200);
-
-        /*if (to_ms_since_boot(get_absolute_time()) - lastSendTime > interval) {
-            std::string input = "hfhfhfhfhf";
-            std::vector<uint8_t> dataVector(input.begin(), input.end());
-            uint8_t droneId = 1;
-            uint32_t packetId = 123;
-            DataType type = DataType::TEST;
-
-            DataPacket dataPacket(droneId, packetId, type, dataVector);
-            sendDataPacket(dataPacket);
-            lastSendTime = to_ms_since_boot(get_absolute_time());            // timestamp the message
-        }*/
-
         // parse for a packet, and call onReceive with the result:
-        std::optional<DataPacket> dataPacketOpt = getReceivedDataPacket();
-        if(dataPacketOpt.has_value()){
-            DataPacket dataPacket = dataPacketOpt.value();
+        std::optional<DataPacket> dataPacketLoraOpt = getReceivedDataPacket();
+        if(dataPacketLoraOpt.has_value()){
+            DataPacket dataPacket = dataPacketLoraOpt.value();
             printf("NEW PACKET!!\n");
         }
 
@@ -175,36 +159,42 @@ int main() {
         
         //----------------------------------------------------------------------
         //Handle new data from the zero
-        std::optional<Message> messageReceivedOpt = drone.receiveMessage();
+        std::optional<DataPacket> dataPacketUartOpt = drone.receiveDataPacketUart();
 
-        if(messageReceivedOpt.has_value()){
-            Message messageReceived = messageReceivedOpt.value();
-            if(messageReceived.type == MessageType::RequestData){
-                switch(messageReceived.data.requestData.requestType) {
-                    case RequestType::POSITION_REQUEST:
-                        Message messagePosition;
-                        messagePosition.type = MessageType::PositionData;
-                        messagePosition.data.positionData = drone.getPositionData();
+        if (dataPacketUartOpt.has_value()) {
+            DataPacket dataPacketUart = dataPacketUartOpt.value();
+            // TODO: drone id validation
 
-                        drone.sendMessage(messagePosition);
-                        break;
-                    case RequestType::SENSOR_REQUEST:
-                        Message messageSensor;
-                        messageSensor.type = MessageType::SensorData;
-                        messageSensor.data.sensorData = drone.getSensorData();
+            switch (dataPacketUart.type) {
+                case DataType::GPS: {
+                    // Get the position data
+                    PositionData positionData = drone.getPositionData();
 
-                        drone.sendMessage(messageSensor);
-                        break;
-                    default:
-                        break;
+                    // Format the data
+                    std::stringstream ss;
+                    ss << positionData.gpsLatitude << ";"
+                    << positionData.gpsLongitude << ";"
+                    << positionData.gpsAltitude << ";"
+                    << positionData.gpsKmph << ";"
+                    << positionData.gpsCourseDeg;
+
+                    std::string combinedString = ss.str();
+                    std::vector<uint8_t> byteVector(combinedString.begin(), combinedString.end());
+
+                    // Make the packet
+                    DataPacket dataPacketReturn(1, 2, DataType::GPS, byteVector);
+
+                    // Send the data
+                    drone.SendDataPacketUart(dataPacketReturn);
+                    break;
                 }
+                default:
+                    break;
             }
         }
 
         //----------------------------------------------------------------------
         //Handle new data from sensor
-
-        messageCount++;
 
         //----------------------------------------------------------------------
         //Process motor and sensor data together
@@ -213,19 +203,12 @@ int main() {
         //Send data to motor
 
         //----------------------------------------------------------------------
-        //Send a copy of the sensor data to the pi zero
+        //Test
+        messageCount++;
 
         auto currentTime = std::chrono::steady_clock::now();
         auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(currentTime - startTime).count();
         if (elapsedTime >= 5) {
-            std::string input = "hfhfhfhfhf";
-            std::vector<uint8_t> dataVector(input.begin(), input.end());
-            uint8_t droneId = 1;
-            uint32_t packetId = 123;
-            DataType type = DataType::TEST;
-
-            DataPacket dataPacket(droneId, packetId, type, dataVector);
-            drone.sendDataPacket(dataPacket);
             drone.log(std::to_string(messageCount));
             messageCount = 0;
             startTime = std::chrono::steady_clock::now();

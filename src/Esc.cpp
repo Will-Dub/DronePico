@@ -9,6 +9,10 @@ Esc::Esc(const uint pin)
     }
 
 void Esc::setSpeedUs(float pulse_width_us){
+    if(killSwitchOn){
+        return;
+    }
+
     if(pulse_width_us > MAX_US){
         return;
     }
@@ -40,6 +44,12 @@ void Esc::setSpeed(float pulse_width_p){
 
 void Esc::stop() {
     setSpeedUs(0);
+    return;
+}
+
+void Esc::useKillSwitch() {
+    stop();
+    killSwitchOn = true;
     return;
 }
 
