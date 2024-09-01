@@ -1,16 +1,16 @@
 #include "Drone.h"
 
-Drone::Drone()
+Drone::Drone(uint droneId)
     : i2c(i2c1, SDA_PIN_I2C, SCL_PIN_I2C, 100*1000),
     mpu6050(&i2c),
     qmc5883l(&i2c),
     uartGps(uart1, 9600, RX_PIN_GPS, TX_PIN_GPS),
     gps(),
     uartZero(uart0, 230400, RX_PIN_ZERO, TX_PIN_ZERO),
-    motor1(MOTOR1_PIN),
-    motor2(MOTOR2_PIN),
-    motor3(MOTOR3_PIN),
-    motor4(MOTOR4_PIN){}
+    lora(LORA_MHZ),
+    motorController(MOTOR_1_PIN, MOTOR_2_PIN, MOTOR_3_PIN, MOTOR_4_PIN),
+    DRONE_ID(droneId),
+    nextPacketId(1){}
 
 void Drone::init(){
     PositionData position_data = {};
@@ -63,6 +63,12 @@ void Drone::init(){
         }
     }
     log("CONFIG FINI QMC5883L");
+
+    log("CONFIG DEBUT Lora");
+
+    lora.init();
+
+    log("CONFIG FINI Lora");
 }
 
 void Drone::sensorRead(){
@@ -110,14 +116,28 @@ void Drone::sensorRead(){
     }
 }
 
+void Drone::SendDataPacketLora(DataPacket dataPacket){
+    lora.writeDataPacket(dataPacket);
+}
+
 void Drone::SendDataPacketUart(DataPacket dataPacket){
     uartZero.writeDataPacket(dataPacket);
+}
+
+std::optional<DataPacket> Drone::receiveDataPacketLora(){
+    lora.readData();
+    
+    if(lora.getIsNewDataReceived()){
+        return lora.getReceivedDataPacket();
+    }
+
+    return std::nullopt;
 }
 
 std::optional<DataPacket> Drone::receiveDataPacketUart(){
     uartZero.readData();
     
-    if(uartZero.isNewDataReceived()){
+    if(uartZero.getIsNewDataReceived()){
         return uartZero.getReceivedDataPacket();
     }
 
@@ -160,6 +180,7 @@ StatusData Drone::getStatusData(){
     statusData.uartGpsConnected = isDataReceivedWithinTimeout(uartGps.getLastReceiveTime());
     statusData.i2cConnected = isDataReceivedWithinTimeout(i2c.getLastReceiveTime());
     statusData.uartZeroConnected = isDataReceivedWithinTimeout(uartZero.getLastReceiveTime());
+    statusData.loraConnected = isDataReceivedWithinTimeout(lora.getLastReceiveTime());
     return statusData;
 }
 
@@ -192,13 +213,79 @@ bool Drone::isDataReceivedWithinTimeout(uint64_t lastReceivedTime){
     uint64_t currentMs = to_us_since_boot(get_absolute_time()) / 1000;
     uint64_t lastMs = lastReceivedTime / 1000;
 
-    return (currentMs - lastMs <= timeout);
+    return (currentMs - lastMs <= TIMEOUT);
 }
 
 void Drone::motorInit(){
-    motor1.init();
-    motor2.init();
-    motor3.init();
-    motor4.init();
+    motorController.init();
     return;
+}
+
+std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket){
+    // Drone id validation
+    if(receivedDataPacket.droneId != DRONE_ID){
+        return std::nullopt;
+    }
+
+    // Data already processed. Packet with id of 0 are exempt
+    if(receivedDataPacket.packetId != 0){
+        if(receivedDataPacket.packetId < nextPacketId){
+            // Packet already processed
+            return std::nullopt;
+        }
+        nextPacketId = receivedDataPacket.packetId += 1;
+    }
+
+    // Handle the packet
+    switch (receivedDataPacket.type) {
+        case DataType::GPS: {
+            // Get the position data
+            PositionData positionData = getPositionData();
+
+            // Format the data
+            std::stringstream ss;
+            ss << positionData.gpsLatitude << ";"
+            << positionData.gpsLongitude << ";"
+            << positionData.gpsAltitude << ";"
+            << positionData.gpsKmph << ";"
+            << positionData.gpsCourseDeg;
+
+            std::string combinedString = ss.str();
+            std::vector<uint8_t> byteVector(combinedString.begin(), combinedString.end());
+
+            // Make the packet
+            DataPacket dataPacketReturn(DRONE_ID, receivedDataPacket.packetId, DataType::GPS, byteVector);
+            return dataPacketReturn;
+        }
+        case DataType::SENSOR: {
+            // Get the sensor data
+            SensorData sensorData = getSensorData();
+
+            // Format the data
+            std::stringstream ss;
+            ss << sensorData.accelX << ";"
+            << sensorData.accelY << ";"
+            << sensorData.accelZ << ";"
+            << sensorData.gyroX << ";"
+            << sensorData.gyroY << ";"
+            << sensorData.gyroZ << ";"
+            << sensorData.magX << ";"
+            << sensorData.magY << ";"
+            << sensorData.magZ << ";"
+            << sensorData.pitch << ";"
+            << sensorData.roll << ";"
+            << sensorData.yaw;
+
+            std::string combinedString = ss.str();
+            std::vector<uint8_t> byteVector(combinedString.begin(), combinedString.end());
+
+            // Make the packet
+            DataPacket dataPacketReturn(DRONE_ID, receivedDataPacket.packetId, DataType::SENSOR, byteVector);
+            return dataPacketReturn;
+        }
+        default:
+            break;
+    }
+
+    return std::nullopt;
 }

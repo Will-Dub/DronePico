@@ -26,14 +26,13 @@ class Esc
 
         void stop();
 
-        void init();
+        const float MAX_US = 2000;
+        const float MIN_US = 1000;
 
     private:
         uint current_us;
         bool killSwitchOn = false;
         const uint PIN;
-        const float MAX_US = 2000;
-        const float MIN_US = 1000;
         const uint32_t FREQ = 50;
         const uint SLICE_NUM;
 

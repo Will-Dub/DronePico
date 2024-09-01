@@ -35,13 +35,10 @@ class UART
 
         uint64_t getLastReceiveTime();
 
-        bool isNewDataReceived();
+        bool getIsNewDataReceived();
 
         void readData();
 
-        /*
-        * Envoie un message qui fini avec \n(automatique)
-        */
         void writeLine(const std::string& str);
 
         void write(const std::string& str);
@@ -58,7 +55,7 @@ class UART
         uint baudrate;
         uint rxPin;
         uint txPin;
-        bool newDataReceived;
+        bool isNewDataReceived;
         std::string receivedData;
         const size_t MAX_BUFFER_SIZE = 256;
 };

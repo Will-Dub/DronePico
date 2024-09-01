@@ -4,9 +4,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <cstdint>
+#include <vector>
+#include <cstring>
+#include <iostream>
 
 enum class DataType : uint8_t {
-    IMAGE,
+    IMAGE, // not supported on the pico
     CONTROL,
     INFO,
     STATUS,

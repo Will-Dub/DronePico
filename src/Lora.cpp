@@ -1,26 +1,56 @@
 #include "Lora.h"
 
-Lora::Lora(const uint pin)
-    : PIN(pin){}
+Lora::Lora(const long frequency)
+    : FREQUENCY(frequency),
+    isNewDataReceived(false){}
 
 bool Lora::init(){
-    return LoRa.begin(433.425E6);
+    isLoraInitialized = LoRa.begin(FREQUENCY);
+    return isLoraInitialized;
 }
 
-void Lora::sendDataPacket(DataPacket dataPacket){
+void Lora::writeDataPacket(DataPacket dataPacket){
+    if(!isLoraInitialized){
+        return;
+    }
+
     uint8_t buffer[256] = {0};
     size_t packet_size = dataPacket.serialize(buffer, sizeof(buffer));
     LoRa.beginPacket();
     LoRa.write(buffer, packet_size);
     LoRa.endPacket();
+
     return;
 }
 
-std::optional<DataPacket> getReceivedDataPacket(){
+void Lora::readData(){
+    if(!isLoraInitialized){
+        return;
+    }
+
     LoRa.parsePacket();
+
+    if(!LoRa.available()){
+        return;
+    }
+
+    isNewDataReceived = true;
+
     while (LoRa.available()) {
         receivedData += (char)LoRa.read();
     }
+
+    lastReceiveTime = get_absolute_time();
+
+    return;
+}
+
+std::optional<DataPacket> Lora::getReceivedDataPacket(){
+    if(!isLoraInitialized){
+        return std::nullopt;
+    }
+    
+    isNewDataReceived = false;
     while (receivedData.size() >= 10) {
         // Find the start marker
         auto start_it = std::find(receivedData.begin(), receivedData.end(), DataPacket::START_MARKER);
@@ -79,4 +109,12 @@ std::optional<DataPacket> getReceivedDataPacket(){
     }
 
     return std::nullopt;
+}
+
+bool Lora::getIsNewDataReceived(){
+    return isNewDataReceived;
+}
+
+uint64_t Lora::getLastReceiveTime() {
+    return to_us_since_boot(lastReceiveTime);
 }

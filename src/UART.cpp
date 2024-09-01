@@ -5,7 +5,7 @@ UART::UART(uart_inst_t *uart_p, uint baudrate_p, uint rxPin_p, uint txPin_p):
     baudrate(baudrate_p),
     rxPin(rxPin_p),
     txPin(txPin_p),
-    newDataReceived(false)
+    isNewDataReceived(false)
     {
         uart_init(instance, baudrate);
         gpio_set_function(txPin, GPIO_FUNC_UART);
@@ -53,7 +53,7 @@ std::string UART::getReceivedData() {
 
     receivedDataReturn = receivedData;
 
-    newDataReceived = false;
+    isNewDataReceived = false;
     receivedData.clear();
 
     return receivedDataReturn;
@@ -68,7 +68,7 @@ std::vector<std::string> UART::getReceivedLines() {
         receivedData.erase(0, pos + 1);
     }
     
-    newDataReceived = !receivedData.empty();
+    isNewDataReceived = !receivedData.empty();
     return lines;
 }
 
@@ -202,7 +202,7 @@ void UART::readData() {
             receivedData.push_back(byte);
         }
         lastReceiveTime = get_absolute_time();
-        newDataReceived = true;
+        isNewDataReceived = true;
     }
 }
 
@@ -210,8 +210,8 @@ void UART::flush() {
     while (uart_is_writable(instance) == 0);
 }
 
-bool UART::isNewDataReceived() {
-    return newDataReceived;
+bool UART::getIsNewDataReceived() {
+    return isNewDataReceived;
 }
 
 uint64_t UART::getLastReceiveTime() {

@@ -74,9 +74,3 @@ void Esc::calibrate(){
     sleep_ms(1000);
     return;
 }
-
-
-void Esc::init(){
-    calibrate();
-    return;
-}
