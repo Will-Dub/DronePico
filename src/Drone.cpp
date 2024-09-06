@@ -197,6 +197,10 @@ SensorData Drone::getSensorData(){
     return sensorData;
 }
 
+uint Drone::getDroneId(){
+    return DRONE_ID;
+}
+
 void Drone::log(const std::string& data, LogType dataType){
     Message message;
     message.type = MessageType::LogData;
@@ -222,11 +226,10 @@ void Drone::motorInit(){
 }
 
 std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket){
-    // Drone id validation
+    //Verify for drone id
     if(receivedDataPacket.droneId != DRONE_ID){
         return std::nullopt;
     }
-
     // Data already processed. Packet with id of 0 are exempt
     if(receivedDataPacket.packetId != 0){
         if(receivedDataPacket.packetId < nextPacketId){

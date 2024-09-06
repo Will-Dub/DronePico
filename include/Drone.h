@@ -71,6 +71,8 @@ class Drone
 
         StatusData getStatusData();
 
+        uint getDroneId();
+
         void SendDataPacketUart(DataPacket dataPacket);
 
         void SendDataPacketLora(DataPacket dataPacket);

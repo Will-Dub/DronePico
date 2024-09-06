@@ -12,6 +12,9 @@
 #include "pico/binary_info.h"
 
 Drone* globalDrone;
+uint8_t msgCount = 0;
+
+static uint32_t blink_interval_ms = 1000;
 
 /*******************************************************************************
  * Function Definitions
@@ -24,8 +27,6 @@ void interrupt(uint gpio, uint32_t events) {
         globalDrone->setDataReadyMPU6050();
     }
 }
-
-uint8_t msgCount = 0;
 
 /*******************************************************************************
  * Main
@@ -65,11 +66,10 @@ int main() {
         std::optional<DataPacket> dataPacketLoraOpt = drone.receiveDataPacketLora();
 
         if (dataPacketLoraOpt.has_value()) {
-            drone.log("LORA NEW PACKET!!\n");
             std::optional<DataPacket> returnDataPacket = drone.handleDataPacket(dataPacketLoraOpt.value());
 
             if(returnDataPacket.has_value()){
-                drone.SendDataPacketUart(returnDataPacket.value());
+                drone.SendDataPacketLora(returnDataPacket.value());
             }
         }
 
@@ -95,6 +95,7 @@ int main() {
 
         //----------------------------------------------------------------------
         //Test
+
         messageCount++;
 
         auto currentTime = std::chrono::steady_clock::now();
@@ -104,5 +105,8 @@ int main() {
             messageCount = 0;
             startTime = std::chrono::steady_clock::now();
         }
+
+        //Added to limit Lora receiving
+        //sleep_ms(20);
     }
 }
