@@ -14,10 +14,11 @@ void Lora::writeDataPacket(DataPacket dataPacket){
         return;
     }
 
-    uint8_t buffer[256] = {0};
+    uint8_t buffer[MAX_SERIALISED_PACKET_SIZE] = {0};
     size_t packet_size = dataPacket.serialize(buffer, sizeof(buffer));
     LoRa.beginPacket();
     LoRa.write(buffer, packet_size);
+    sleep_ms(5);
     LoRa.endPacket();
 
     return;
@@ -36,11 +37,9 @@ void Lora::readData(){
 
     isNewDataReceived = true;
 
-    while (LoRa.available()) {
+    while (LoRa.available() && receivedData.size() < MAX_RECV_BUFFER_SIZE) {
         receivedData += (char)LoRa.read();
     }
-
-    lastReceiveTime = get_absolute_time();
 
     return;
 }
@@ -71,7 +70,7 @@ std::optional<DataPacket> Lora::getReceivedDataPacket(){
         memcpy(&message_length, &*(start_it + 7), sizeof(uint32_t));
 
         //Verify message length is in the range
-        if (message_length > MAX_BUFFER_SIZE) {
+        if (message_length > MAX_DATA_SIZE) {
             // Message size exceeds buffer limit, discard all
             auto next_start_it = std::find(start_it + 1, receivedData.end(), DataPacket::START_MARKER);
             receivedData.erase(receivedData.begin(), next_start_it);

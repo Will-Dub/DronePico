@@ -12,7 +12,11 @@
 class Lora
 {
    public:
-    
+      static constexpr size_t MAX_RECV_BUFFER_SIZE = 1024;
+      static constexpr size_t MAX_DATA_SIZE = 256;
+      static constexpr size_t MAX_PACKET_SIZE = MAX_DATA_SIZE + DataPacket::HEADER_SIZE;
+      static constexpr size_t MAX_SERIALISED_PACKET_SIZE = MAX_PACKET_SIZE + 2;
+
       Lora(const long frequency);
 
       bool init();

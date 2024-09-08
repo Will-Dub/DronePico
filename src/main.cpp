@@ -14,7 +14,8 @@
 Drone* globalDrone;
 uint8_t msgCount = 0;
 
-static uint32_t blink_interval_ms = 1000;
+const uint LED_PIN = 25;
+const uint BLINK_INTERVAL_MS = 500;
 
 /*******************************************************************************
  * Function Definitions
@@ -28,12 +29,31 @@ void interrupt(uint gpio, uint32_t events) {
     }
 }
 
+void blink_led(uint pin, uint interval_ms) {
+    static uint32_t last_toggle_time = 0;
+    static bool led_state = false;
+
+    uint32_t current_time = to_ms_since_boot(get_absolute_time());
+
+    if (current_time - last_toggle_time >= interval_ms) {
+        led_state = !led_state;
+        gpio_put(pin, led_state);
+
+        last_toggle_time = current_time;
+    }
+}
+
 /*******************************************************************************
  * Main
  */
 int main() {
     stdio_init_all();
 
+    // LED init
+    gpio_init(LED_PIN);
+    gpio_set_dir(LED_PIN, GPIO_OUT);
+
+    // Drone init
     Drone drone = Drone(1);
     globalDrone = &drone;
     drone.init();
@@ -106,7 +126,6 @@ int main() {
             startTime = std::chrono::steady_clock::now();
         }
 
-        //Added to limit Lora receiving
-        //sleep_ms(20);
+        blink_led(LED_PIN, BLINK_INTERVAL_MS);
     }
 }

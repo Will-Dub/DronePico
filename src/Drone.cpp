@@ -181,6 +181,7 @@ StatusData Drone::getStatusData(){
     statusData.i2cConnected = isDataReceivedWithinTimeout(i2c.getLastReceiveTime());
     statusData.uartZeroConnected = isDataReceivedWithinTimeout(uartZero.getLastReceiveTime());
     statusData.loraConnected = isDataReceivedWithinTimeout(lora.getLastReceiveTime());
+    statusData.useMotor = motorController.getIsInit();
     return statusData;
 }
 
@@ -225,11 +226,62 @@ void Drone::motorInit(){
     return;
 }
 
+void Drone::motorUninit(){
+    motorController.uninit();
+    return;
+}
+
+//TODO find a place for this
+bool isValidInteger(const std::string& str) {
+    if (str.empty()) return false;
+    size_t start = 0;
+    
+    // Handle optional negative sign
+    if (str[0] == '-') {
+        if (str.size() == 1) return false; // "-" is not a valid integer
+        start = 1;
+    }
+    
+    // Check if all remaining characters are digits
+    for (size_t i = start; i < str.size(); ++i) {
+        if (!std::isdigit(str[i])) return false;
+    }
+    
+    return true;
+}
+
+std::vector<int> splitAndConvertToInts(const std::string& str, char delimiter) {
+    std::vector<int> values;
+    std::stringstream ss(str);
+    std::string item;
+
+    while (std::getline(ss, item, delimiter)) {
+        if (isValidInteger(item)) {
+            // Convert string to integer
+            std::istringstream(item) >> std::ws; // Skip leading whitespaces
+            int value;
+            std::istringstream(item) >> value;
+            values.push_back(value);
+        } else {
+            std::cerr << "Error: Invalid integer format: " << item << std::endl;
+        }
+    }
+
+    return values;
+}
+
 std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket){
     //Verify for drone id
     if(receivedDataPacket.droneId != DRONE_ID){
         return std::nullopt;
     }
+
+    // Check if it's a start packet
+    if(receivedDataPacket.type == DataType::START){
+        nextPacketId = 0;
+        return receivedDataPacket;
+    }
+
     // Data already processed. Packet with id of 0 are exempt
     if(receivedDataPacket.packetId != 0){
         if(receivedDataPacket.packetId < nextPacketId){
@@ -241,6 +293,15 @@ std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket)
 
     // Handle the packet
     switch (receivedDataPacket.type) {
+        case DataType::CONTROL: {
+            std::string dataStr(receivedDataPacket.data.begin(), receivedDataPacket.data.end());
+
+            std::vector<int> controlValues = splitAndConvertToInts(dataStr, ';');
+
+            if (controlValues.size() == 4) {
+                motorController.control(controlValues[0], controlValues[1], controlValues[2], controlValues[3]);
+            }
+        }
         case DataType::GPS: {
             // Get the position data
             PositionData positionData = getPositionData();
@@ -285,6 +346,38 @@ std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket)
             // Make the packet
             DataPacket dataPacketReturn(DRONE_ID, receivedDataPacket.packetId, DataType::SENSOR, byteVector);
             return dataPacketReturn;
+        }
+        case DataType::START_SPECIFIC: {
+            // Start a specific part of the drone
+            std::string dataStr(receivedDataPacket.data.begin(), receivedDataPacket.data.end());
+            
+            if(dataStr == "MOTOR"){
+                motorInit();
+            }else if(dataStr == "MPU6050"){
+                setUseMpu6050(true);
+            }else if(dataStr == "QMC5883L"){
+                setUseQmc5883l(true);
+            }else if(dataStr == "GPS"){
+                setUseGps(true);
+            }else if(dataStr == "LOG"){
+                setUseLog(true);
+            }
+        }
+        case DataType::STOP_SPECIFIC: {
+            // Stop a specific part of the drone
+            std::string dataStr(receivedDataPacket.data.begin(), receivedDataPacket.data.end());
+            
+            if(dataStr == "MOTOR"){
+                motorUninit();
+            }else if(dataStr == "MPU6050"){
+                setUseMpu6050(false);
+            }else if(dataStr == "QMC5883L"){
+                setUseQmc5883l(false);
+            }else if(dataStr == "GPS"){
+                setUseGps(false);
+            }else if(dataStr == "LOG"){
+                setUseLog(false);
+            }
         }
         default:
             break;

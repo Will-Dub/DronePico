@@ -54,7 +54,7 @@ struct PositionData {
 struct StatusData {
     bool uartZeroConnected, uartGpsConnected, i2cConnected, loraConnected;
 
-    bool useMpu6050, useQmc5883l, useGps, useLog;
+    bool useMotor, useMpu6050, useQmc5883l, useGps, useLog;
 };
 
 struct SensorData {

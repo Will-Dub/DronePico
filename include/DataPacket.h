@@ -9,6 +9,7 @@
 #include <iostream>
 
 enum class DataType : uint8_t {
+    UNDEFINED,
     IMAGE, // not supported on the pico
     CONTROL,
     INFO,
@@ -17,10 +18,13 @@ enum class DataType : uint8_t {
     SENSOR,
     GPS,
     STOP,
-    TEST
+    STOP_SPECIFIC,
+    START,
+    START_SPECIFIC
 };
 
 struct DataPacket {
+    static constexpr size_t HEADER_SIZE = 10;
     static constexpr uint8_t START_MARKER = 0x7E;
     static constexpr uint8_t END_MARKER = 0x7E;
 
@@ -30,7 +34,7 @@ struct DataPacket {
     uint32_t dataSize;
     std::vector<uint8_t> data;
 
-    DataPacket() : droneId(0), packetId(0), type(DataType::TEST), dataSize(0) {}
+    DataPacket() : droneId(0), packetId(0), type(DataType::UNDEFINED), dataSize(0) {}
 
     DataPacket(uint8_t drone, uint32_t packet, DataType t, const std::vector<uint8_t>& d) 
         : droneId(drone), packetId(packet), type(t), data(d), dataSize(d.size()) {}

@@ -14,7 +14,11 @@ class MotorController
 
         void init();
 
+        void uninit();
+
         bool getIsInit();
+
+        void control(int j1a, int j1b, int j2a, int j2b);
 
     private:
         bool killSwitchOn = false;

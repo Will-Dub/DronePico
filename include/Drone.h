@@ -91,6 +91,8 @@ class Drone
 
         void motorInit();
 
+        void motorUninit();
+
         void log(const std::string& data, LogType dataType = LogType::LOG_INFO);
 
         std::optional<DataPacket> handleDataPacket(DataPacket dataPacket);

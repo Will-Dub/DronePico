@@ -6,7 +6,16 @@ MotorController::MotorController(const uint PIN_MOTOR_1, const uint PIN_MOTOR_2,
     motor3(PIN_MOTOR_3),
     motor4(PIN_MOTOR_4){}
 
+void MotorController::control(int j1a, int j1b, int j2a, int j2b){
+    return;
+}
+
 void MotorController::init(){
+    // Check if not already init
+    if(isInit){
+        return;
+    }
+
     //Calibrate all motor
     motor1.setSpeedUs(motor1.MAX_US);
     motor2.setSpeedUs(motor2.MAX_US);
@@ -29,6 +38,21 @@ void MotorController::init(){
     motor4.setSpeedUs(motor4.MIN_US);
     sleep_ms(1000);
     isInit = true;
+}
+
+void MotorController::uninit(){
+    // Check if init
+    if(!isInit){
+        return;
+    }
+
+    //Calibrate all motor
+    motor1.setSpeedUs(0);
+    motor2.setSpeedUs(0);
+    motor3.setSpeedUs(0);
+    motor4.setSpeedUs(0);
+    sleep_ms(3000);
+    isInit = false;
 }
 
 bool MotorController::getIsInit(){
