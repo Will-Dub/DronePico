@@ -203,14 +203,14 @@ uint Drone::getDroneId(){
 }
 
 void Drone::log(const std::string& data, LogType dataType){
-    Message message;
+    /*Message message;
     message.type = MessageType::LogData;
     message.data.logData.type = dataType;
 
     std::strncpy(message.data.logData.message, data.c_str(), sizeof(message.data.logData.message) - 1);
     message.data.logData.message[sizeof(message.data.logData.message) - 1] = '\0';
 
-    uartZero.writeMessage(message);
+    uartZero.writeMessage(message);*/
     return;
 }
 
@@ -223,11 +223,13 @@ bool Drone::isDataReceivedWithinTimeout(uint64_t lastReceivedTime){
 
 void Drone::motorInit(){
     motorController.init();
+    statusData.useMotor = true;
     return;
 }
 
 void Drone::motorUninit(){
     motorController.uninit();
+    statusData.useMotor = false;
     return;
 }
 
@@ -347,6 +349,29 @@ std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket)
             DataPacket dataPacketReturn(DRONE_ID, receivedDataPacket.packetId, DataType::SENSOR, byteVector);
             return dataPacketReturn;
         }
+        case DataType::STATUS: {
+            // Get the status data
+            StatusData statusData = getStatusData();
+
+            // Format the data
+            std::stringstream ss;
+            ss << statusData.uartZeroConnected << ";"
+            << statusData.uartGpsConnected << ";"
+            << statusData.i2cConnected << ";"
+            << statusData.loraConnected << ";"
+            << statusData.useMotor << ";"
+            << statusData.useMpu6050 << ";"
+            << statusData.useQmc5883l << ";"
+            << statusData.useGps << ";"
+            << statusData.useLog << ";";
+
+            std::string combinedString = ss.str();
+            std::vector<uint8_t> byteVector(combinedString.begin(), combinedString.end());
+
+            // Make the packet
+            DataPacket dataPacketReturn(DRONE_ID, receivedDataPacket.packetId, DataType::STATUS, byteVector);
+            return dataPacketReturn;
+        }
         case DataType::START_SPECIFIC: {
             // Start a specific part of the drone
             std::string dataStr(receivedDataPacket.data.begin(), receivedDataPacket.data.end());
@@ -362,6 +387,29 @@ std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket)
             }else if(dataStr == "LOG"){
                 setUseLog(true);
             }
+
+            //TODO remove that
+            // Get the status data
+            StatusData statusData = getStatusData();
+
+            // Format the data
+            std::stringstream ss;
+            ss << statusData.uartZeroConnected << ";"
+            << statusData.uartGpsConnected << ";"
+            << statusData.i2cConnected << ";"
+            << statusData.loraConnected << ";"
+            << statusData.useMotor << ";"
+            << statusData.useMpu6050 << ";"
+            << statusData.useQmc5883l << ";"
+            << statusData.useGps << ";"
+            << statusData.useLog << ";";
+
+            std::string combinedString = ss.str();
+            std::vector<uint8_t> byteVector(combinedString.begin(), combinedString.end());
+
+            // Make the packet
+            DataPacket dataPacketReturn(DRONE_ID, receivedDataPacket.packetId, DataType::STATUS, byteVector);
+            return dataPacketReturn;
         }
         case DataType::STOP_SPECIFIC: {
             // Stop a specific part of the drone

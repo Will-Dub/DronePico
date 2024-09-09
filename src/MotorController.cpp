@@ -6,7 +6,29 @@ MotorController::MotorController(const uint PIN_MOTOR_1, const uint PIN_MOTOR_2,
     motor3(PIN_MOTOR_3),
     motor4(PIN_MOTOR_4){}
 
-void MotorController::control(int j1a, int j1b, int j2a, int j2b){
+void MotorController::control(int joystickLeftY, int joystickLeftX, int joystickRightY, int joystickRightX){
+    // Motor speeds (0 to max_motor_speed)
+    int throttle = MotorController::map(joystickLeftY, -100, 100, 0, MAX_MOTOR_SPEED_P);
+
+    // Direct joystick input for yaw (still -100 to 100 range)
+    int yaw = joystickLeftX;
+
+    // Pitch input (-100 to 100 range)
+    int pitch = joystickRightY;
+
+    // Roll input (-100 to 100 range)
+    int roll = joystickRightX;
+
+    // Calculate motor speed
+    int motor1 = throttle + pitch + roll - yaw; // Front-left motor
+    int motor2 = throttle + pitch - roll + yaw; // Front-right motor
+    int motor3 = throttle - pitch + roll + yaw; // Rear-left motor
+    int motor4 = throttle - pitch - roll - yaw; // Rear-right motor
+
+    motor1 = MotorController::constrain(motor1, 0, MAX_MOTOR_SPEED_P);
+    motor2 = MotorController::constrain(motor2, 0, MAX_MOTOR_SPEED_P);
+    motor3 = MotorController::constrain(motor3, 0, MAX_MOTOR_SPEED_P);
+    motor4 = MotorController::constrain(motor4, 0, MAX_MOTOR_SPEED_P);
     return;
 }
 
@@ -57,4 +79,14 @@ void MotorController::uninit(){
 
 bool MotorController::getIsInit(){
     return isInit;
+}
+
+int MotorController::map(int value, int in_min, int in_max, int out_min, int out_max) {
+    return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+int MotorController::constrain(int value, int minValue, int maxValue) {
+    if (value < minValue) return minValue;
+    if (value > maxValue) return maxValue;
+    return value;
 }

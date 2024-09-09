@@ -18,7 +18,6 @@
 #include "QMC5883L.h"
 #include "UART.h"
 #include "TinyGPS++.h"
-#include "Message.h"
 #include "MotorController.h"
 
 #define PI 3.14159265358979323846

@@ -54,7 +54,7 @@ std::optional<DataPacket> Lora::getReceivedDataPacket(){
         // Find the start marker
         auto start_it = std::find(receivedData.begin(), receivedData.end(), DataPacket::START_MARKER);
         if (start_it == receivedData.end()) {
-            // No start marker found, clear all data if incomplete message
+            // No start marker found, clear all data if incomplete dataPacket
             receivedData.clear();
             return std::nullopt;
         }
@@ -65,26 +65,26 @@ std::optional<DataPacket> Lora::getReceivedDataPacket(){
             return std::nullopt;
         }
 
-        // Extract the message length
-        uint32_t message_length;
-        memcpy(&message_length, &*(start_it + 7), sizeof(uint32_t));
+        // Extract the data length
+        uint32_t dataLength;
+        memcpy(&dataLength, &*(start_it + 7), sizeof(uint32_t));
 
-        //Verify message length is in the range
-        if (message_length > MAX_DATA_SIZE) {
-            // Message size exceeds buffer limit, discard all
+        //Verify data length is in the range
+        if (dataLength > MAX_DATA_SIZE) {
+            // data size exceeds buffer limit, discard all
             auto next_start_it = std::find(start_it + 1, receivedData.end(), DataPacket::START_MARKER);
             receivedData.erase(receivedData.begin(), next_start_it);
             return std::nullopt;
         }
 
-        // Ensure the message is in full
-        size_t total_message_size = 12 + message_length;
-        if (remaining_data < total_message_size) {
+        // Ensure the packet is in full
+        size_t totalDataPacketSize = 12 + dataLength;
+        if (remaining_data < totalDataPacketSize) {
             return std::nullopt;
         }
 
         // Check end marker
-        auto end_it = start_it + total_message_size - 1;
+        auto end_it = start_it + totalDataPacketSize - 1;
         if (*end_it != DataPacket::END_MARKER) {
             // Invalid end marker, discard data up to next start marker
             auto next_start_it = std::find(start_it + 1, receivedData.end(), DataPacket::START_MARKER);
@@ -100,7 +100,7 @@ std::optional<DataPacket> Lora::getReceivedDataPacket(){
         std::vector<uint8_t> buffer(start_it, end_it + 1);
         DataPacket dataPacket;
         if (dataPacket.deserialize(buffer.data(), buffer.size())) {
-            receivedData.erase(receivedData.begin(), end_it + 1); // Remove the processed message including the end marker
+            receivedData.erase(receivedData.begin(), end_it + 1); // Remove the processed data packet including the end marker
             return dataPacket;
         } else {
             receivedData.erase(receivedData.begin(), start_it + 1); // Move past the invalid start marker
