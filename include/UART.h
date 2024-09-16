@@ -20,7 +20,7 @@ class UART
         /**
          * Initialise le uart avec l'instance, le rate et les pins
          */
-        UART(uart_inst_t *uart, uint baudrate, uint rx_pin, uint tx_pin);
+        UART(uart_inst_t *uart, uint baudrate, int rx_pin, int tx_pin);
 
         void flush();
 
@@ -48,8 +48,8 @@ class UART
         absolute_time_t lastReceiveTime;
         uart_inst_t *instance;
         uint baudrate;
-        uint rxPin;
-        uint txPin;
+        const int RX_PIN;
+        const int TX_PIN;
         bool isNewDataReceived;
         std::string receivedData;
         const size_t MAX_BUFFER_SIZE = 256;

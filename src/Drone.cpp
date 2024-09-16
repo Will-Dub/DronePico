@@ -64,11 +64,11 @@ void Drone::init(){
     }
     log("CONFIG FINI QMC5883L");
 
-    log("CONFIG DEBUT Lora");
+    log("CONFIG DEBUT LORA");
 
     lora.init();
 
-    log("CONFIG FINI Lora");
+    log("CONFIG FINI LORA");
 }
 
 void Drone::sensorRead(){
@@ -102,15 +102,14 @@ void Drone::sensorRead(){
     }
 
     //Data from gps
-    while (statusData.useGps && uart_is_readable(uart1)) {
-        char c = uart_getc(uart1);
-        gps.encode(c);
-        if (gps.location.isUpdated()) {
-            positionData.gpsLatitude = gps.location.lat();
-            positionData.gpsLongitude = gps.location.lng();
-            positionData.gpsAltitude = gps.altitude.meters();
-            positionData.gpsKmph = gps.speed.kmph();
-            positionData.gpsCourseDeg = gps.course.deg();
+    if(statusData.useGps){
+        uartZero.readData();
+    
+        if(uartZero.getIsNewDataReceived()){
+            std::string gpsData = uartZero.getReceivedData();
+            for (char c : gpsData) {
+                gps.encode(c);
+            }
             newPositionData = true;
         }
     }
@@ -186,7 +185,15 @@ StatusData Drone::getStatusData(){
 }
 
 PositionData Drone::getPositionData(){
-    newPositionData = false;
+    if(newPositionData){
+        positionData.gpsLatitude = gps.location.lat();
+        positionData.gpsLongitude = gps.location.lng();
+        positionData.gpsAltitude = gps.altitude.meters();
+        positionData.gpsKmph = gps.speed.kmph();
+        positionData.gpsCourseDeg = gps.course.deg();
+        newPositionData = false;
+    }
+    
     return positionData;
 }
 
@@ -202,15 +209,23 @@ uint Drone::getDroneId(){
     return DRONE_ID;
 }
 
-void Drone::log(const std::string& data, LogType dataType){
-    /*Message message;
-    message.type = MessageType::LogData;
-    message.data.logData.type = dataType;
+void Drone::log(const std::string& data, LogType logType){
+    if(statusData.useLog == false){
+        return;
+    }
 
-    std::strncpy(message.data.logData.message, data.c_str(), sizeof(message.data.logData.message) - 1);
-    message.data.logData.message[sizeof(message.data.logData.message) - 1] = '\0';
+    // Create the data vector with the log type
+    std::string formattedStr = std::to_string(static_cast<int>(logType)) + ";";
+    std::vector<uint8_t> dataVec(data.begin(), data.end());
+    dataVec.insert(dataVec.begin(), formattedStr.begin(), formattedStr.end());
 
-    uartZero.writeMessage(message);*/
+    // Initialise the packet
+    DataPacket logPacket = DataPacket(DRONE_ID, 1, DataType::LOG, dataVec);
+
+    // Send the packet
+    uartZero.writeDataPacket(logPacket);
+    lora.writeDataPacket(logPacket);
+
     return;
 }
 
@@ -284,7 +299,7 @@ std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket)
         return receivedDataPacket;
     }
 
-    // Data already processed. Packet with id of 0 are exempt
+    // Data already processed. Packet with id of 0 are always handled
     if(receivedDataPacket.packetId != 0){
         if(receivedDataPacket.packetId < nextPacketId){
             // Packet already processed

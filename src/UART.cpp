@@ -1,15 +1,20 @@
 #include "UART.h"
 
-UART::UART(uart_inst_t *uart_p, uint baudrate_p, uint rxPin_p, uint txPin_p):
+UART::UART(uart_inst_t *uart_p, uint baudrate_p, int rxPin_p, int txPin_p):
     instance(uart_p),
     baudrate(baudrate_p),
-    rxPin(rxPin_p),
-    txPin(txPin_p),
+    RX_PIN(rxPin_p),
+    TX_PIN(txPin_p),
     isNewDataReceived(false)
     {
         uart_init(instance, baudrate);
-        gpio_set_function(txPin, GPIO_FUNC_UART);
-        gpio_set_function(rxPin, GPIO_FUNC_UART);
+        
+        if(TX_PIN != -1){
+            gpio_set_function(TX_PIN, GPIO_FUNC_UART);
+        }
+        if(RX_PIN != -1){
+            gpio_set_function(RX_PIN, GPIO_FUNC_UART);
+        }
 
         uart_set_format(instance, 8, 1, UART_PARITY_NONE);
 

@@ -101,6 +101,7 @@ std::optional<DataPacket> Lora::getReceivedDataPacket(){
         DataPacket dataPacket;
         if (dataPacket.deserialize(buffer.data(), buffer.size())) {
             receivedData.erase(receivedData.begin(), end_it + 1); // Remove the processed data packet including the end marker
+            lastReceiveTime = get_absolute_time();
             return dataPacket;
         } else {
             receivedData.erase(receivedData.begin(), start_it + 1); // Move past the invalid start marker
