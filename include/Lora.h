@@ -27,7 +27,7 @@ class Lora
 
       std::optional<DataPacket> getReceivedDataPacket();
 
-      bool getIsNewDataReceived();
+      bool getIsNewDataToProcess();
 
       uint64_t getLastReceiveTime();
 
@@ -37,6 +37,7 @@ class Lora
       std::string receivedData = "";
       bool isLoraInitialized = false;
       bool isNewDataReceived;
+      bool isDataLeftToProcess;
       absolute_time_t lastReceiveTime;
 };
 

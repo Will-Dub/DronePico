@@ -105,7 +105,7 @@ void Drone::sensorRead(){
     if(statusData.useGps){
         uartZero.readData();
     
-        if(uartZero.getIsNewDataReceived()){
+        if(uartZero.getIsNewDataToProcess()){
             std::string gpsData = uartZero.getReceivedData();
             for (char c : gpsData) {
                 gps.encode(c);
@@ -126,7 +126,7 @@ void Drone::SendDataPacketUart(DataPacket dataPacket){
 std::optional<DataPacket> Drone::receiveDataPacketLora(){
     lora.readData();
     
-    if(lora.getIsNewDataReceived()){
+    if(lora.getIsNewDataToProcess()){
         return lora.getReceivedDataPacket();
     }
 
@@ -136,7 +136,7 @@ std::optional<DataPacket> Drone::receiveDataPacketLora(){
 std::optional<DataPacket> Drone::receiveDataPacketUart(){
     uartZero.readData();
     
-    if(uartZero.getIsNewDataReceived()){
+    if(uartZero.getIsNewDataToProcess()){
         return uartZero.getReceivedDataPacket();
     }
 

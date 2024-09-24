@@ -32,7 +32,7 @@ class UART
 
         uint64_t getLastReceiveTime();
 
-        bool getIsNewDataReceived();
+        bool getIsNewDataToProcess();
 
         void readData();
 
@@ -51,6 +51,7 @@ class UART
         const int RX_PIN;
         const int TX_PIN;
         bool isNewDataReceived;
+        bool isDataLeftToProcess;
         std::string receivedData;
         const size_t MAX_BUFFER_SIZE = 256;
 };

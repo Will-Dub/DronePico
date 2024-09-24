@@ -2,7 +2,8 @@
 
 Lora::Lora(const long frequency)
     : FREQUENCY(frequency),
-    isNewDataReceived(false){}
+    isNewDataReceived(false),
+    isDataLeftToProcess(false){}
 
 bool Lora::init(){
     isLoraInitialized = LoRa.begin(FREQUENCY);
@@ -20,6 +21,7 @@ void Lora::writeDataPacket(DataPacket dataPacket){
     LoRa.write(buffer, packet_size);
     sleep_ms(5);
     LoRa.endPacket();
+    sleep_ms(5);
 
     return;
 }
@@ -55,6 +57,7 @@ std::optional<DataPacket> Lora::getReceivedDataPacket(){
         auto start_it = std::find(receivedData.begin(), receivedData.end(), DataPacket::START_MARKER);
         if (start_it == receivedData.end()) {
             // No start marker found, clear all data if incomplete dataPacket
+            isDataLeftToProcess = false;
             receivedData.clear();
             return std::nullopt;
         }
@@ -62,6 +65,7 @@ std::optional<DataPacket> Lora::getReceivedDataPacket(){
         // Calculate the remaining data after the start marker
         size_t remaining_data = std::distance(start_it, receivedData.end());
         if (remaining_data < 12) {
+            isDataLeftToProcess = false;
             return std::nullopt;
         }
 
@@ -74,12 +78,14 @@ std::optional<DataPacket> Lora::getReceivedDataPacket(){
             // data size exceeds buffer limit, discard all
             auto next_start_it = std::find(start_it + 1, receivedData.end(), DataPacket::START_MARKER);
             receivedData.erase(receivedData.begin(), next_start_it);
+            isDataLeftToProcess = true;
             return std::nullopt;
         }
 
         // Ensure the packet is in full
         size_t totalDataPacketSize = 12 + dataLength;
         if (remaining_data < totalDataPacketSize) {
+            isDataLeftToProcess = false;
             return std::nullopt;
         }
 
@@ -89,8 +95,10 @@ std::optional<DataPacket> Lora::getReceivedDataPacket(){
             // Invalid end marker, discard data up to next start marker
             auto next_start_it = std::find(start_it + 1, receivedData.end(), DataPacket::START_MARKER);
             if (next_start_it != receivedData.end()) {
+                isDataLeftToProcess = true;
                 receivedData.erase(receivedData.begin(), next_start_it);
             } else {
+                isDataLeftToProcess = false;
                 receivedData.clear();
             }
             return std::nullopt;
@@ -99,6 +107,7 @@ std::optional<DataPacket> Lora::getReceivedDataPacket(){
         // Extract and deserialize
         std::vector<uint8_t> buffer(start_it, end_it + 1);
         DataPacket dataPacket;
+        isDataLeftToProcess = true;
         if (dataPacket.deserialize(buffer.data(), buffer.size())) {
             receivedData.erase(receivedData.begin(), end_it + 1); // Remove the processed data packet including the end marker
             lastReceiveTime = get_absolute_time();
@@ -111,8 +120,8 @@ std::optional<DataPacket> Lora::getReceivedDataPacket(){
     return std::nullopt;
 }
 
-bool Lora::getIsNewDataReceived(){
-    return isNewDataReceived;
+bool Lora::getIsNewDataToProcess(){
+    return isNewDataReceived || isDataLeftToProcess;
 }
 
 uint64_t Lora::getLastReceiveTime() {

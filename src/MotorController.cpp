@@ -20,15 +20,21 @@ void MotorController::control(int joystickLeftY, int joystickLeftX, int joystick
     int roll = joystickRightX;
 
     // Calculate motor speed
-    int motor1 = throttle + pitch + roll - yaw; // Front-left motor
-    int motor2 = throttle + pitch - roll + yaw; // Front-right motor
-    int motor3 = throttle - pitch + roll + yaw; // Rear-left motor
-    int motor4 = throttle - pitch - roll - yaw; // Rear-right motor
+    int motor1Speed = throttle + pitch + roll - yaw; // Front-left motor
+    int motor2Speed = throttle + pitch - roll + yaw; // Front-right motor
+    int motor3Speed = throttle - pitch + roll + yaw; // Rear-left motor
+    int motor4Speed = throttle - pitch - roll - yaw; // Rear-right motor
 
-    motor1 = MotorController::constrain(motor1, 0, MAX_MOTOR_SPEED_P);
-    motor2 = MotorController::constrain(motor2, 0, MAX_MOTOR_SPEED_P);
-    motor3 = MotorController::constrain(motor3, 0, MAX_MOTOR_SPEED_P);
-    motor4 = MotorController::constrain(motor4, 0, MAX_MOTOR_SPEED_P);
+    motor1Speed = MotorController::constrain(motor1Speed, 0, MAX_MOTOR_SPEED_P);
+    motor2Speed = MotorController::constrain(motor2Speed, 0, MAX_MOTOR_SPEED_P);
+    motor3Speed = MotorController::constrain(motor3Speed, 0, MAX_MOTOR_SPEED_P);
+    motor4Speed = MotorController::constrain(motor4Speed, 0, MAX_MOTOR_SPEED_P);
+
+    count++;
+
+    printf("Count: %d", count);
+
+    //printf("MOTOR 1: %d. 2: %d. 3: %d. 4: %d.\n", motor1Speed, motor2Speed, motor3Speed, motor4Speed);
     return;
 }
 

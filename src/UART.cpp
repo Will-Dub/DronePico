@@ -5,7 +5,8 @@ UART::UART(uart_inst_t *uart_p, uint baudrate_p, int rxPin_p, int txPin_p):
     baudrate(baudrate_p),
     RX_PIN(rxPin_p),
     TX_PIN(txPin_p),
-    isNewDataReceived(false)
+    isNewDataReceived(false),
+    isDataLeftToProcess(false)
     {
         uart_init(instance, baudrate);
         
@@ -71,11 +72,13 @@ std::vector<std::string> UART::getReceivedLines() {
 }
 
 std::optional<DataPacket> UART::getReceivedDataPacket() {
+    isNewDataReceived = false;
     while (receivedData.size() >= 10) {
         // Find the start marker
         auto start_it = std::find(receivedData.begin(), receivedData.end(), DataPacket::START_MARKER);
         if (start_it == receivedData.end()) {
             // No start marker found, clear all data if incomplete data packet
+            isDataLeftToProcess = false;
             receivedData.clear();
             return std::nullopt;
         }
@@ -83,6 +86,7 @@ std::optional<DataPacket> UART::getReceivedDataPacket() {
         // Calculate the remaining data after the start marker
         size_t remaining_data = std::distance(start_it, receivedData.end());
         if (remaining_data < 12) {  // Minimum size check
+            isDataLeftToProcess = false;
             return std::nullopt;
         }
 
@@ -93,6 +97,7 @@ std::optional<DataPacket> UART::getReceivedDataPacket() {
         //Verify data length is in the range
         if (dataLength > MAX_BUFFER_SIZE) {
             // data size exceeds buffer limit, discard all data
+            isDataLeftToProcess = true;
             auto next_start_it = std::find(start_it + 1, receivedData.end(), DataPacket::START_MARKER);
             receivedData.erase(receivedData.begin(), next_start_it);
             return std::nullopt;
@@ -101,6 +106,7 @@ std::optional<DataPacket> UART::getReceivedDataPacket() {
         // Ensure we have the complete data packet
         size_t totalDataPacketSize = 12 + dataLength;
         if (remaining_data < totalDataPacketSize) {
+            isDataLeftToProcess = false;
             return std::nullopt;
         }
 
@@ -110,8 +116,10 @@ std::optional<DataPacket> UART::getReceivedDataPacket() {
             // Invalid end
             auto next_start_it = std::find(start_it + 1, receivedData.end(), DataPacket::START_MARKER);
             if (next_start_it != receivedData.end()) {
+                isDataLeftToProcess = true;
                 receivedData.erase(receivedData.begin(), next_start_it); // Remove all to next start
             } else {
+                isDataLeftToProcess = false;
                 receivedData.clear(); // No start marker found, clear all data
             }
             return std::nullopt;
@@ -120,6 +128,7 @@ std::optional<DataPacket> UART::getReceivedDataPacket() {
         // Extract and deserialize the data packet
         std::vector<uint8_t> buffer(start_it, end_it + 1);
         DataPacket dataPacket;
+        isDataLeftToProcess = true;
         if (dataPacket.deserialize(buffer.data(), buffer.size())) {
             receivedData.erase(receivedData.begin(), end_it + 1); // Remove the data packet and the end marker
             return dataPacket;
@@ -147,8 +156,8 @@ void UART::flush() {
     while (uart_is_writable(instance) == 0);
 }
 
-bool UART::getIsNewDataReceived() {
-    return isNewDataReceived;
+bool UART::getIsNewDataToProcess() {
+    return isNewDataReceived || isDataLeftToProcess;
 }
 
 uint64_t UART::getLastReceiveTime() {
