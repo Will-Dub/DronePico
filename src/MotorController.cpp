@@ -30,10 +30,6 @@ void MotorController::control(int joystickLeftY, int joystickLeftX, int joystick
     motor3Speed = MotorController::constrain(motor3Speed, 0, MAX_MOTOR_SPEED_P);
     motor4Speed = MotorController::constrain(motor4Speed, 0, MAX_MOTOR_SPEED_P);
 
-    count++;
-
-    printf("Count: %d", count);
-
     //printf("MOTOR 1: %d. 2: %d. 3: %d. 4: %d.\n", motor1Speed, motor2Speed, motor3Speed, motor4Speed);
     return;
 }

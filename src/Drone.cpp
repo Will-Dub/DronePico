@@ -124,8 +124,6 @@ void Drone::SendDataPacketUart(DataPacket dataPacket){
 }
 
 std::optional<DataPacket> Drone::receiveDataPacketLora(){
-    lora.readData();
-    
     if(lora.getIsNewDataToProcess()){
         return lora.getReceivedDataPacket();
     }
@@ -141,6 +139,10 @@ std::optional<DataPacket> Drone::receiveDataPacketUart(){
     }
 
     return std::nullopt;
+}
+
+void Drone::readDataLora(){
+    lora.readData();
 }
 
 void Drone::setUseMpu6050(bool enable){
@@ -288,6 +290,7 @@ std::vector<int> splitAndConvertToInts(const std::string& str, char delimiter) {
 }
 
 std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket){
+    printf("RECEIVED: %d\n", receivedDataPacket.packetId);
     //Verify for drone id
     if(receivedDataPacket.droneId != DRONE_ID){
         return std::nullopt;

@@ -109,6 +109,7 @@ const int SDA_PIN_I2C = 26, SCL_PIN_I2C = 27;
 const int MOTOR_1_PIN = 2, MOTOR_2_PIN = 4, MOTOR_3_PIN = 12, MOTOR_4_PIN = 14;
 const char MPU6050_DATA_READY_PIN = 21;
 const char QMC5883L_DATA_READY_PIN = 22;
+const int LORA_DATA_READY_PIN = LORA_DEFAULT_DIO0_PIN;
 const long LORA_MHZ = 433.425E6;
 
 class Drone
@@ -159,6 +160,8 @@ class Drone
         std::optional<DataPacket> receiveDataPacketUart();
 
         std::optional<DataPacket> receiveDataPacketLora();
+
+        void readDataLora();
 
         void setDataReadyQMC5883L();
 

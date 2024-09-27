@@ -39,8 +39,6 @@ class MotorController
         Esc motor4;
 
         const uint MAX_MOTOR_SPEED_P = 100;
-
-        uint count = 0;
 };
 
 #endif

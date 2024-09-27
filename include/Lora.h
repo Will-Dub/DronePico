@@ -31,6 +31,8 @@ class Lora
 
       uint64_t getLastReceiveTime();
 
+      static void onReceive(int packetSize);
+
    private:
       const long FREQUENCY;
       const size_t MAX_BUFFER_SIZE = 256;

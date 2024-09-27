@@ -5,8 +5,51 @@ Lora::Lora(const long frequency)
     isNewDataReceived(false),
     isDataLeftToProcess(false){}
 
+void Lora::onReceive(int packetSize) {
+  if (packetSize == 0) return;          // if there's no packet, return
+
+  // read packet header uint8_ts:
+  uint8_t recipient = LoRa.read();          // recipient address
+  uint8_t sender = LoRa.read();            // sender address
+  uint8_t incomingMsgId = LoRa.read();     // incoming msg ID
+  uint8_t incomingLength = LoRa.read();    // incoming msg length
+
+  string incoming;                 // payload of packet
+
+  while (LoRa.available()) {            // can't use readString() in callback, so
+    incoming += (char)LoRa.read();      // add uint8_ts one by one
+  }
+
+  if (incomingLength != incoming.length()) {   // check length for error
+    printf("error: message length does not match length");
+    return;                             // skip rest of function
+  }
+
+  // if the recipient isn't this device or broadcast,
+  if (recipient != 0x33 && recipient != 0xFF) {
+    printf("This message is not for me.");
+    return;                             // skip rest of function
+  }
+
+  // if message is for this device, or broadcast, print details:
+  printf("Received from: 0x%x\n", sender);
+  printf("Sent to: 0x%x\n", recipient);
+  printf("Message ID: %d\n", incomingMsgId);
+  printf("Message length: %d\n", incomingLength);
+  printf("Message: %s\n", incoming.c_str());
+  printf("RSSI: %s\n", LoRa.packetRssi());
+  printf("Snr: %s\n", LoRa.packetSnr());
+  printf("\n");
+}
+
 bool Lora::init(){
     isLoraInitialized = LoRa.begin(FREQUENCY);
+
+    // Register the callback
+    if(isLoraInitialized){
+        LoRa.onReceive(onReceive);
+        LoRa.receive();
+    }
     return isLoraInitialized;
 }
 
@@ -15,14 +58,19 @@ void Lora::writeDataPacket(DataPacket dataPacket){
         return;
     }
 
+    // Wait for last packet
+    while (LoRa.beginPacket() == 0) {
+      printf("Waiting for lora ... \n");
+      sleep_ms(10);
+    }
+
     uint8_t buffer[MAX_SERIALISED_PACKET_SIZE] = {0};
     size_t packet_size = dataPacket.serialize(buffer, sizeof(buffer));
     LoRa.beginPacket();
     LoRa.write(buffer, packet_size);
-    sleep_ms(5);
-    LoRa.endPacket();
-    sleep_ms(5);
-
+    // True for non blocking
+    LoRa.endPacket(true);
+    LoRa.receive();
     return;
 }
 
@@ -79,6 +127,7 @@ std::optional<DataPacket> Lora::getReceivedDataPacket(){
             auto next_start_it = std::find(start_it + 1, receivedData.end(), DataPacket::START_MARKER);
             receivedData.erase(receivedData.begin(), next_start_it);
             isDataLeftToProcess = true;
+            printf("TOO LONG");
             return std::nullopt;
         }
 
@@ -94,6 +143,7 @@ std::optional<DataPacket> Lora::getReceivedDataPacket(){
         if (*end_it != DataPacket::END_MARKER) {
             // Invalid end marker, discard data up to next start marker
             auto next_start_it = std::find(start_it + 1, receivedData.end(), DataPacket::START_MARKER);
+            printf("No end");
             if (next_start_it != receivedData.end()) {
                 isDataLeftToProcess = true;
                 receivedData.erase(receivedData.begin(), next_start_it);
@@ -113,6 +163,7 @@ std::optional<DataPacket> Lora::getReceivedDataPacket(){
             lastReceiveTime = get_absolute_time();
             return dataPacket;
         } else {
+            printf("Error deserialize");
             receivedData.erase(receivedData.begin(), start_it + 1); // Move past the invalid start marker
         }
     }

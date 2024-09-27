@@ -21,11 +21,16 @@ const uint BLINK_INTERVAL_MS = 500;
  * Function Definitions
  */
 void interrupt(uint gpio, uint32_t events) {
+    gpio_acknowledge_irq(gpio, events);
+
     if(gpio == QMC5883L_DATA_READY_PIN){
         globalDrone->setDataReadyQMC5883L();
     }
     else if(gpio == MPU6050_DATA_READY_PIN){
         globalDrone->setDataReadyMPU6050();
+    }
+    else if(gpio == LORA_DATA_READY_PIN){
+        globalDrone->readDataLora();
     }
 }
 
@@ -64,6 +69,9 @@ int main() {
 
     //MPU6050
     gpio_set_irq_enabled_with_callback(MPU6050_DATA_READY_PIN, GPIO_IRQ_EDGE_RISE, true, &interrupt);
+
+    // LORA
+    gpio_set_irq_enabled_with_callback(LORA_DATA_READY_PIN, GPIO_IRQ_EDGE_RISE, true, &interrupt);
 
     //----------------------------------------------------------------------
     //MAIN LOOP
