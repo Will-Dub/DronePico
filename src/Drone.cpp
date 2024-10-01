@@ -142,7 +142,7 @@ std::optional<DataPacket> Drone::receiveDataPacketUart(){
 }
 
 void Drone::readDataLora(){
-    lora.readData();
+    lora.recvInterrupt();
 }
 
 void Drone::setUseMpu6050(bool enable){
@@ -159,6 +159,10 @@ void Drone::setUseGps(bool enable){
 
 void Drone::setUseLog(bool enable){
     statusData.useLog = enable;
+}
+
+void Drone::setUseMotorInformation(bool enable){
+    statusData.useMotorInformation = enable;
 }
 
 void Drone::setDataReadyQMC5883L(){
@@ -182,7 +186,10 @@ StatusData Drone::getStatusData(){
     statusData.i2cConnected = isDataReceivedWithinTimeout(i2c.getLastReceiveTime());
     statusData.uartZeroConnected = isDataReceivedWithinTimeout(uartZero.getLastReceiveTime());
     statusData.loraConnected = isDataReceivedWithinTimeout(lora.getLastReceiveTime());
-    statusData.useMotor = motorController.getIsInit();
+    statusData.useMotor1 = motorController.getIsInit(1);
+    statusData.useMotor2 = motorController.getIsInit(2);
+    statusData.useMotor3 = motorController.getIsInit(3);
+    statusData.useMotor4 = motorController.getIsInit(4);
     return statusData;
 }
 
@@ -240,13 +247,21 @@ bool Drone::isDataReceivedWithinTimeout(uint64_t lastReceivedTime){
 
 void Drone::motorInit(){
     motorController.init();
-    statusData.useMotor = true;
+    return;
+}
+
+void Drone::motorInitSpecific(int motor){
+    motorController.initSpecific(motor);
     return;
 }
 
 void Drone::motorUninit(){
     motorController.uninit();
-    statusData.useMotor = false;
+    return;
+}
+
+void Drone::motorUninitSpecific(int motor){
+    motorController.uninitSpecific(motor);
     return;
 }
 
@@ -290,7 +305,6 @@ std::vector<int> splitAndConvertToInts(const std::string& str, char delimiter) {
 }
 
 std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket){
-    printf("RECEIVED: %d\n", receivedDataPacket.packetId);
     //Verify for drone id
     if(receivedDataPacket.droneId != DRONE_ID){
         return std::nullopt;
@@ -320,6 +334,21 @@ std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket)
 
             if (controlValues.size() == 4) {
                 motorController.control(controlValues[0], controlValues[1], controlValues[2], controlValues[3]);
+                
+                if(statusData.useMotorInformation){
+                    // Return motor information
+                    std::stringstream ss;
+                    ss << motorController.motor1Speed << ";"
+                    << motorController.motor2Speed << ";"
+                    << motorController.motor3Speed << ";"
+                    << motorController.motor4Speed;
+
+                    std::string combinedString = ss.str();
+                    std::vector<uint8_t> byteVector(combinedString.begin(), combinedString.end());
+
+                    DataPacket dataPacketReturn(DRONE_ID, receivedDataPacket.packetId, DataType::CONTROL, byteVector);
+                    return dataPacketReturn;
+                }
             }
         }
         case DataType::GPS: {
@@ -377,7 +406,10 @@ std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket)
             << statusData.uartGpsConnected << ";"
             << statusData.i2cConnected << ";"
             << statusData.loraConnected << ";"
-            << statusData.useMotor << ";"
+            << statusData.useMotor1 << ";"
+            << statusData.useMotor2 << ";"
+            << statusData.useMotor3 << ";"
+            << statusData.useMotor4 << ";"
             << statusData.useMpu6050 << ";"
             << statusData.useQmc5883l << ";"
             << statusData.useGps << ";"
@@ -396,6 +428,14 @@ std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket)
             
             if(dataStr == "MOTOR"){
                 motorInit();
+            }else if(dataStr == "MOTOR_1"){
+                motorInitSpecific(1);
+            }else if(dataStr == "MOTOR_2"){
+                motorInitSpecific(2);
+            }else if(dataStr == "MOTOR_3"){
+                motorInitSpecific(3);
+            }else if(dataStr == "MOTOR_4"){
+                motorInitSpecific(4);
             }else if(dataStr == "MPU6050"){
                 setUseMpu6050(true);
             }else if(dataStr == "QMC5883L"){
@@ -404,6 +444,8 @@ std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket)
                 setUseGps(true);
             }else if(dataStr == "LOG"){
                 setUseLog(true);
+            }else if(dataStr == "MOTOR_INFORMATION"){
+                setUseMotorInformation(true);
             }
 
             //TODO remove that
@@ -416,11 +458,15 @@ std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket)
             << statusData.uartGpsConnected << ";"
             << statusData.i2cConnected << ";"
             << statusData.loraConnected << ";"
-            << statusData.useMotor << ";"
+            << statusData.useMotor1 << ";"
+            << statusData.useMotor2 << ";"
+            << statusData.useMotor3 << ";"
+            << statusData.useMotor4 << ";"
             << statusData.useMpu6050 << ";"
             << statusData.useQmc5883l << ";"
             << statusData.useGps << ";"
-            << statusData.useLog << ";";
+            << statusData.useLog << ";"
+            << statusData.useMotorInformation << ";";
 
             std::string combinedString = ss.str();
             std::vector<uint8_t> byteVector(combinedString.begin(), combinedString.end());
@@ -435,6 +481,14 @@ std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket)
             
             if(dataStr == "MOTOR"){
                 motorUninit();
+            }else if(dataStr == "MOTOR_1"){
+                motorUninitSpecific(1);
+            }else if(dataStr == "MOTOR_2"){
+                motorUninitSpecific(2);
+            }else if(dataStr == "MOTOR_3"){
+                motorUninitSpecific(3);
+            }else if(dataStr == "MOTOR_4"){
+                motorUninitSpecific(4);
             }else if(dataStr == "MPU6050"){
                 setUseMpu6050(false);
             }else if(dataStr == "QMC5883L"){
@@ -443,7 +497,36 @@ std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket)
                 setUseGps(false);
             }else if(dataStr == "LOG"){
                 setUseLog(false);
+            }else if(dataStr == "MOTOR_INFORMATION"){
+                setUseMotorInformation(false);
             }
+
+            //TODO remove that
+            // Get the status data
+            StatusData statusData = getStatusData();
+
+            // Format the data
+            std::stringstream ss;
+            ss << statusData.uartZeroConnected << ";"
+            << statusData.uartGpsConnected << ";"
+            << statusData.i2cConnected << ";"
+            << statusData.loraConnected << ";"
+            << statusData.useMotor1 << ";"
+            << statusData.useMotor2 << ";"
+            << statusData.useMotor3 << ";"
+            << statusData.useMotor4 << ";"
+            << statusData.useMpu6050 << ";"
+            << statusData.useQmc5883l << ";"
+            << statusData.useGps << ";"
+            << statusData.useLog << ";"
+            << statusData.useMotorInformation << ";";
+
+            std::string combinedString = ss.str();
+            std::vector<uint8_t> byteVector(combinedString.begin(), combinedString.end());
+
+            // Make the packet
+            DataPacket dataPacketReturn(DRONE_ID, receivedDataPacket.packetId, DataType::STATUS, byteVector);
+            return dataPacketReturn;
         }
         default:
             break;

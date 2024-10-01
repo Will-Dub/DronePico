@@ -22,7 +22,6 @@ const uint BLINK_INTERVAL_MS = 500;
  */
 void interrupt(uint gpio, uint32_t events) {
     gpio_acknowledge_irq(gpio, events);
-
     if(gpio == QMC5883L_DATA_READY_PIN){
         globalDrone->setDataReadyQMC5883L();
     }

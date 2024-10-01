@@ -99,11 +99,12 @@ public:
 
   void dumpRegisters();
 
+  void handleDio0Rise();
+
 private:
   void explicitHeaderMode();
   void implicitHeaderMode();
 
-  void handleDio0Rise();
   bool isTransmitting();
 
   int getSpreadingFactor();

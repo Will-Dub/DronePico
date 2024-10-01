@@ -67,32 +67,44 @@ struct StatusData {
     bool i2cConnected;
     bool loraConnected;
 
-    bool useMotor;
+    bool useMotor1;
+    bool useMotor2;
+    bool useMotor3;
+    bool useMotor4;
     bool useMpu6050;
     bool useQmc5883l;
     bool useGps;
     bool useLog;
+    bool useMotorInformation;
     
     StatusData(
         bool uartZeroConnected = false,
         bool uartGpsConnected = false,
         bool i2cConnected = false,
         bool loraConnected = false,
-        bool useMotor = false,
+        bool useMotor1 = false,
+        bool useMotor2 = false,
+        bool useMotor3 = false,
+        bool useMotor4 = false,
         bool useMpu6050 = true,
         bool useQmc5883l = true,
         bool useGps = true,
-        bool useLog = true
+        bool useLog = true,
+        bool useMotorInformation = false
     )
         : uartZeroConnected(uartZeroConnected),
           uartGpsConnected(uartGpsConnected),
           i2cConnected(i2cConnected),
           loraConnected(loraConnected),
-          useMotor(useMotor),
+          useMotor1(useMotor1),
+          useMotor2(useMotor2),
+          useMotor3(useMotor3),
+          useMotor4(useMotor4),
           useMpu6050(useMpu6050),
           useQmc5883l(useQmc5883l),
           useGps(useGps),
-          useLog(useLog) {}
+          useLog(useLog),
+          useMotorInformation(useMotorInformation) {}
 };
 
 struct SensorData {
@@ -145,6 +157,8 @@ class Drone
 
         void setUseLog(bool enable);
 
+        void setUseMotorInformation(bool enable);
+
         SensorData getSensorData();
 
         PositionData getPositionData();
@@ -161,8 +175,6 @@ class Drone
 
         std::optional<DataPacket> receiveDataPacketLora();
 
-        void readDataLora();
-
         void setDataReadyQMC5883L();
 
         void setDataReadyMPU6050();
@@ -173,11 +185,17 @@ class Drone
 
         void motorInit();
 
+        void motorInitSpecific(int motor);
+
         void motorUninit();
+
+        void motorUninitSpecific(int motor);
 
         void log(const std::string& data, LogType logType = LogType::LOG_INFO);
 
         std::optional<DataPacket> handleDataPacket(DataPacket dataPacket);
+
+        void readDataLora();
 
     private:
         // New data

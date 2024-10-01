@@ -31,7 +31,7 @@ class Lora
 
       uint64_t getLastReceiveTime();
 
-      static void onReceive(int packetSize);
+      void recvInterrupt();
 
    private:
       const long FREQUENCY;

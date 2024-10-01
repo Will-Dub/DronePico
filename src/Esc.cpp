@@ -9,7 +9,7 @@ Esc::Esc(const uint pin)
     }
 
 void Esc::setSpeedUs(float pulse_width_us){
-    if(killSwitchOn){
+    if(!isInit){
         return;
     }
 
@@ -37,6 +37,10 @@ void Esc::setSpeedUs(float pulse_width_us){
 }
 
 void Esc::setSpeed(float pulse_width_p){
+    if(!isInit){
+        return;
+    }
+
     float range = MAX_US - MIN_US;
     setSpeedUs(((range / 100) * pulse_width_p) + MIN_US);
     return;
@@ -44,12 +48,7 @@ void Esc::setSpeed(float pulse_width_p){
 
 void Esc::stop() {
     setSpeedUs(0);
-    return;
-}
-
-void Esc::useKillSwitch() {
-    stop();
-    killSwitchOn = true;
+    isInit = false;
     return;
 }
 
@@ -60,17 +59,21 @@ void Esc::arm() {
     sleep_ms(1000);
     setSpeedUs(MIN_US);
     sleep_ms(1000);
+
+    isInit = true;
     return;
 }
 
 void Esc::calibrate(){
     setSpeedUs(MAX_US);
-    sleep_ms(34400);
+    sleep_ms(4000);
     setSpeedUs(MIN_US);
-    sleep_ms(10000);
+    sleep_ms(4000);
     setSpeedUs(0);
     sleep_ms(2000);
     setSpeedUs(MIN_US);
     sleep_ms(1000);
+
+    isInit = true;
     return;
 }

@@ -14,11 +14,17 @@ class MotorController
 
         void init();
 
+        void initSpecific(int motor);
+
         void uninit();
 
-        bool getIsInit();
+        void uninitSpecific(int motor);
+
+        bool getIsInit(int motor);
 
         void control(int j1a, int j1b, int j2a, int j2b);
+
+        int motor1Speed, motor2Speed, motor3Speed, motor4Speed;
 
     private:
         static int map(int value, int in_min, int in_max, int out_min, int out_max);
@@ -26,8 +32,6 @@ class MotorController
         static int constrain(int value, int minValue, int maxValue);
 
         bool killSwitchOn = false;
-
-        bool isInit = false;
 
         // Behind right
         Esc motor1;

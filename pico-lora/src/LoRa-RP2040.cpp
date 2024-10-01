@@ -360,11 +360,11 @@ void LoRaClass::onReceive(void(*callback)(int))
 {
   _onReceive = callback;
 
-  if (callback) {
+  /*if (callback) {
     gpio_set_irq_enabled_with_callback(_dio0, GPIO_IRQ_EDGE_RISE, true, &LoRaClass::onDio0Rise);
   } else {
     gpio_set_irq_enabled(_dio0, GPIO_IRQ_EDGE_RISE, false);
-  }
+  }*/
 }
 
 void LoRaClass::onCadDone(void(*callback)(bool)) 
