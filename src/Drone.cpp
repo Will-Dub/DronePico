@@ -181,15 +181,32 @@ bool Drone::isNewSensorData(){
     return newSensorData;
 }
 
+bool Drone::getLoraConnectionStatus(){
+    return isDataReceivedWithinTimeout(lora.getLastReceiveTime());
+}
+
+bool Drone::getZeroConnectionStatus(){
+    return isDataReceivedWithinTimeout(uartZero.getLastReceiveTime());
+}
+
+bool Drone::getI2CConnectionStatus(){
+    return isDataReceivedWithinTimeout(i2c.getLastReceiveTime());
+}
+
+bool Drone::getGPSConnectionStatus(){
+    return isDataReceivedWithinTimeout(uartGps.getLastReceiveTime());
+}
+
 StatusData Drone::getStatusData(){
-    statusData.uartGpsConnected = isDataReceivedWithinTimeout(uartGps.getLastReceiveTime());
-    statusData.i2cConnected = isDataReceivedWithinTimeout(i2c.getLastReceiveTime());
-    statusData.uartZeroConnected = isDataReceivedWithinTimeout(uartZero.getLastReceiveTime());
-    statusData.loraConnected = isDataReceivedWithinTimeout(lora.getLastReceiveTime());
+    statusData.uartGpsConnected = getGPSConnectionStatus();
+    statusData.i2cConnected = getI2CConnectionStatus();
+    statusData.uartZeroConnected = getZeroConnectionStatus();
+    statusData.loraConnected = getLoraConnectionStatus();
     statusData.useMotor1 = motorController.getIsInit(1);
     statusData.useMotor2 = motorController.getIsInit(2);
     statusData.useMotor3 = motorController.getIsInit(3);
     statusData.useMotor4 = motorController.getIsInit(4);
+    statusData.maxMotorSpeed = motorController.maxMotorSpeed;
     return statusData;
 }
 
@@ -265,6 +282,11 @@ void Drone::motorUninitSpecific(int motor){
     return;
 }
 
+void Drone::motorControl(int joystickLeftX, int joystickLeftY, int joystickRightX, int joystickRightY){
+    motorController.control(joystickLeftX, joystickLeftY, joystickRightX, joystickRightY);
+    return;
+}
+
 //TODO find a place for this
 bool isValidInteger(const std::string& str) {
     if (str.empty()) return false;
@@ -304,16 +326,39 @@ std::vector<int> splitAndConvertToInts(const std::string& str, char delimiter) {
     return values;
 }
 
+DataPacket Drone::getStatusDataPacket(DataPacket receivedDataPacket){
+    // Get the status data
+    StatusData statusData = getStatusData();
+
+    // Format the data
+    std::stringstream ss;
+    ss << statusData.uartZeroConnected << ";"
+    << statusData.uartGpsConnected << ";"
+    << statusData.i2cConnected << ";"
+    << statusData.loraConnected << ";"
+    << statusData.useMotor1 << ";"
+    << statusData.useMotor2 << ";"
+    << statusData.useMotor3 << ";"
+    << statusData.useMotor4 << ";"
+    << statusData.useMpu6050 << ";"
+    << statusData.useQmc5883l << ";"
+    << statusData.useGps << ";"
+    << statusData.useLog << ";"
+    << statusData.useMotorInformation << ";"
+    << statusData.maxMotorSpeed << ";";
+
+    std::string combinedString = ss.str();
+    std::vector<uint8_t> byteVector(combinedString.begin(), combinedString.end());
+
+    // Make the packet
+    return DataPacket(DRONE_ID, receivedDataPacket.packetId, DataType::STATUS, byteVector);
+}
+
 std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket){
+    printf("New packet: %d\n", receivedDataPacket.packetId);
     //Verify for drone id
     if(receivedDataPacket.droneId != DRONE_ID){
         return std::nullopt;
-    }
-
-    // Check if it's a start packet
-    if(receivedDataPacket.type == DataType::START){
-        nextPacketId = 0;
-        return receivedDataPacket;
     }
 
     // Data already processed. Packet with id of 0 are always handled
@@ -397,30 +442,7 @@ std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket)
             return dataPacketReturn;
         }
         case DataType::STATUS: {
-            // Get the status data
-            StatusData statusData = getStatusData();
-
-            // Format the data
-            std::stringstream ss;
-            ss << statusData.uartZeroConnected << ";"
-            << statusData.uartGpsConnected << ";"
-            << statusData.i2cConnected << ";"
-            << statusData.loraConnected << ";"
-            << statusData.useMotor1 << ";"
-            << statusData.useMotor2 << ";"
-            << statusData.useMotor3 << ";"
-            << statusData.useMotor4 << ";"
-            << statusData.useMpu6050 << ";"
-            << statusData.useQmc5883l << ";"
-            << statusData.useGps << ";"
-            << statusData.useLog << ";";
-
-            std::string combinedString = ss.str();
-            std::vector<uint8_t> byteVector(combinedString.begin(), combinedString.end());
-
-            // Make the packet
-            DataPacket dataPacketReturn(DRONE_ID, receivedDataPacket.packetId, DataType::STATUS, byteVector);
-            return dataPacketReturn;
+            return getStatusDataPacket(receivedDataPacket);
         }
         case DataType::START_SPECIFIC: {
             // Start a specific part of the drone
@@ -448,32 +470,7 @@ std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket)
                 setUseMotorInformation(true);
             }
 
-            //TODO remove that
-            // Get the status data
-            StatusData statusData = getStatusData();
-
-            // Format the data
-            std::stringstream ss;
-            ss << statusData.uartZeroConnected << ";"
-            << statusData.uartGpsConnected << ";"
-            << statusData.i2cConnected << ";"
-            << statusData.loraConnected << ";"
-            << statusData.useMotor1 << ";"
-            << statusData.useMotor2 << ";"
-            << statusData.useMotor3 << ";"
-            << statusData.useMotor4 << ";"
-            << statusData.useMpu6050 << ";"
-            << statusData.useQmc5883l << ";"
-            << statusData.useGps << ";"
-            << statusData.useLog << ";"
-            << statusData.useMotorInformation << ";";
-
-            std::string combinedString = ss.str();
-            std::vector<uint8_t> byteVector(combinedString.begin(), combinedString.end());
-
-            // Make the packet
-            DataPacket dataPacketReturn(DRONE_ID, receivedDataPacket.packetId, DataType::STATUS, byteVector);
-            return dataPacketReturn;
+            return getStatusDataPacket(receivedDataPacket);
         }
         case DataType::STOP_SPECIFIC: {
             // Stop a specific part of the drone
@@ -501,32 +498,36 @@ std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket)
                 setUseMotorInformation(false);
             }
 
-            //TODO remove that
-            // Get the status data
-            StatusData statusData = getStatusData();
+            return getStatusDataPacket(receivedDataPacket);
+        }
+        case DataType::START: {
+            nextPacketId = 0;
+            return receivedDataPacket;
+        }
+        case DataType::STOP: {
+            nextPacketId = 0;
+            motorController.control(0,0,0,0);
+            return receivedDataPacket;
+        }
+        case DataType::CHANGE_SPEED: {
+            std::string dataStr(receivedDataPacket.data.begin(), receivedDataPacket.data.end());
 
-            // Format the data
-            std::stringstream ss;
-            ss << statusData.uartZeroConnected << ";"
-            << statusData.uartGpsConnected << ";"
-            << statusData.i2cConnected << ";"
-            << statusData.loraConnected << ";"
-            << statusData.useMotor1 << ";"
-            << statusData.useMotor2 << ";"
-            << statusData.useMotor3 << ";"
-            << statusData.useMotor4 << ";"
-            << statusData.useMpu6050 << ";"
-            << statusData.useQmc5883l << ";"
-            << statusData.useGps << ";"
-            << statusData.useLog << ";"
-            << statusData.useMotorInformation << ";";
+            std::vector<int> values = splitAndConvertToInts(dataStr, ';');
 
-            std::string combinedString = ss.str();
-            std::vector<uint8_t> byteVector(combinedString.begin(), combinedString.end());
+            if (values.size() != 1) {
+                break;
+            }
 
-            // Make the packet
-            DataPacket dataPacketReturn(DRONE_ID, receivedDataPacket.packetId, DataType::STATUS, byteVector);
-            return dataPacketReturn;
+            int maxMotorSpeed = values[0];
+
+            // Validate its in the 0-100 range
+            if(maxMotorSpeed < 0 || maxMotorSpeed > 100){
+                break;
+            }
+
+            motorController.maxMotorSpeed = maxMotorSpeed;
+
+            return getStatusDataPacket(receivedDataPacket);
         }
         default:
             break;

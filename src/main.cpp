@@ -21,7 +21,6 @@ const uint BLINK_INTERVAL_MS = 500;
  * Function Definitions
  */
 void interrupt(uint gpio, uint32_t events) {
-    gpio_acknowledge_irq(gpio, events);
     if(gpio == QMC5883L_DATA_READY_PIN){
         globalDrone->setDataReadyQMC5883L();
     }
@@ -81,6 +80,8 @@ int main() {
     long lastSendTime = 0;
     int interval = 5000;
 
+    bool lastLoraConnectionStatus = false;
+
     while (true) {
         //----------------------------------------------------------------------
         //Read the sensor data
@@ -111,14 +112,20 @@ int main() {
             }
         }
 
+        // Check for lora change of state
+        bool loraConnectionStatus = drone.getLoraConnectionStatus();
+        if(lastLoraConnectionStatus != loraConnectionStatus){
+            if(!loraConnectionStatus){
+                drone.motorControl(0,0,0,0);
+            }
+            lastLoraConnectionStatus = loraConnectionStatus;
+        }
+
         //----------------------------------------------------------------------
         //Handle new data from sensor
 
         //----------------------------------------------------------------------
         //Process motor and sensor data together
-
-        //----------------------------------------------------------------------
-        //Send data to motor
 
         //----------------------------------------------------------------------
         //Test

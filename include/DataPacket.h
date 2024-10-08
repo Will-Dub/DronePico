@@ -20,7 +20,8 @@ enum class DataType : uint8_t {
     STOP,
     STOP_SPECIFIC,
     START,
-    START_SPECIFIC
+    START_SPECIFIC,
+    CHANGE_SPEED,
 };
 
 struct DataPacket {

@@ -76,6 +76,7 @@ struct StatusData {
     bool useGps;
     bool useLog;
     bool useMotorInformation;
+    int maxMotorSpeed;
     
     StatusData(
         bool uartZeroConnected = false,
@@ -90,7 +91,8 @@ struct StatusData {
         bool useQmc5883l = true,
         bool useGps = true,
         bool useLog = true,
-        bool useMotorInformation = false
+        bool useMotorInformation = false,
+        int maxMotorSpeed = 40
     )
         : uartZeroConnected(uartZeroConnected),
           uartGpsConnected(uartGpsConnected),
@@ -104,7 +106,8 @@ struct StatusData {
           useQmc5883l(useQmc5883l),
           useGps(useGps),
           useLog(useLog),
-          useMotorInformation(useMotorInformation) {}
+          useMotorInformation(useMotorInformation),
+          maxMotorSpeed(maxMotorSpeed) {}
 };
 
 struct SensorData {
@@ -163,6 +166,14 @@ class Drone
 
         PositionData getPositionData();
 
+        bool getLoraConnectionStatus();
+
+        bool getZeroConnectionStatus();
+
+        bool getI2CConnectionStatus();
+
+        bool getGPSConnectionStatus();
+
         StatusData getStatusData();
 
         uint getDroneId();
@@ -191,7 +202,11 @@ class Drone
 
         void motorUninitSpecific(int motor);
 
+        void motorControl(int joystickLeftX, int joystickLeftY, int joystickRightX, int joystickRightY);
+
         void log(const std::string& data, LogType logType = LogType::LOG_INFO);
+
+        DataPacket getStatusDataPacket(DataPacket receivedDataPacket);
 
         std::optional<DataPacket> handleDataPacket(DataPacket dataPacket);
 

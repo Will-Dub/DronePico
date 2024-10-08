@@ -31,7 +31,10 @@ class Esc
 
         void calibrate();
 
+        uint getCurrentUs();
+
         bool isInit = false;
+        
     private:
         uint current_us;
         const uint PIN;

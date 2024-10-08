@@ -26,6 +26,13 @@ class MotorController
 
         int motor1Speed, motor2Speed, motor3Speed, motor4Speed;
 
+        uint getMotor1Us();
+        uint getMotor2Us();
+        uint getMotor3Us();
+        uint getMotor4Us();
+
+        uint maxMotorSpeed = 40;
+
     private:
         static int map(int value, int in_min, int in_max, int out_min, int out_max);
 
@@ -41,8 +48,6 @@ class MotorController
         Esc motor3;
         // Front left
         Esc motor4;
-
-        const uint MAX_MOTOR_SPEED_P = 100;
 };
 
 #endif

@@ -9,6 +9,7 @@ Esc::Esc(const uint pin)
     }
 
 void Esc::setSpeedUs(float pulse_width_us){
+    current_us = pulse_width_us;
     if(!isInit){
         return;
     }
@@ -50,6 +51,10 @@ void Esc::stop() {
     setSpeedUs(0);
     isInit = false;
     return;
+}
+
+uint Esc::getCurrentUs(){
+    return current_us;
 }
 
 void Esc::arm() {

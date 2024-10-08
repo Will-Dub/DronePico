@@ -104,7 +104,7 @@ int MPU6050::getDataGyro(){
 }
 
 int MPU6050::calibrate(){
-    float temprateCalibrationRoll, temprateCalibrationPitch, temprateCalibrationYaw = 0;
+    float temprateCalibrationRoll = 0, temprateCalibrationPitch = 0, temprateCalibrationYaw = 0;
     for(int i=0; i<1000; i++){
         if(getDataGyro() != 0){
             return 1;
