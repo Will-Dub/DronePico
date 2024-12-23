@@ -11,11 +11,15 @@
 #include "Drone.h"
 #include "pico/binary_info.h"
 
+// Remove when in prod
+#pragma GCC optimize ("O0")
+
 Drone* globalDrone;
 uint8_t msgCount = 0;
 
 const uint LED_PIN = 25;
-const uint BLINK_INTERVAL_MS = 500;
+const uint BLINK_INTERVAL_MS = 5000;
+const uint BLINK_TIME_MS = 500;
 
 /*******************************************************************************
  * Function Definitions
@@ -32,13 +36,13 @@ void interrupt(uint gpio, uint32_t events) {
     }
 }
 
-void blink_led(uint pin, uint interval_ms) {
+void blink_led(uint pin, uint interval_ms, uint time_ms) {
     static uint32_t last_toggle_time = 0;
     static bool led_state = false;
 
     uint32_t current_time = to_ms_since_boot(get_absolute_time());
 
-    if (current_time - last_toggle_time >= interval_ms) {
+    if ((led_state && current_time - last_toggle_time >= time_ms) || (!led_state && current_time - last_toggle_time >= interval_ms)) {
         led_state = !led_state;
         gpio_put(pin, led_state);
 
@@ -116,6 +120,7 @@ int main() {
         bool loraConnectionStatus = drone.getLoraConnectionStatus();
         if(lastLoraConnectionStatus != loraConnectionStatus){
             if(!loraConnectionStatus){
+                // If the connection is disconnected, stop the motors
                 drone.motorControl(0,0,0,0);
             }
             lastLoraConnectionStatus = loraConnectionStatus;
@@ -135,11 +140,11 @@ int main() {
         auto currentTime = std::chrono::steady_clock::now();
         auto elapsedTime = std::chrono::duration_cast<std::chrono::seconds>(currentTime - startTime).count();
         if (elapsedTime >= 5) {
-            //drone.log(std::to_string(messageCount));
-            messageCount = 0;
+            drone.log(std::to_string(messageCount));
             startTime = std::chrono::steady_clock::now();
+            messageCount = 0;
         }
 
-        blink_led(LED_PIN, BLINK_INTERVAL_MS);
+        blink_led(LED_PIN, BLINK_INTERVAL_MS, BLINK_TIME_MS);
     }
 }

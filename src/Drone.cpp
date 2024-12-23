@@ -1,5 +1,8 @@
 #include "Drone.h"
 
+// Remove when in prod
+#pragma GCC optimize ("O0")
+
 Drone::Drone(uint droneId)
     : i2c(i2c1, SDA_PIN_I2C, SCL_PIN_I2C, 100*1000),
     mpu6050(&i2c),
