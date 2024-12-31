@@ -242,7 +242,7 @@ class Drone
         uint nextPacketId;
 
         const uint DRONE_ID;
-        const int TIMEOUT = 10000;
+        const int TIMEOUT = 5000;
     private:
         bool isDataReceivedWithinTimeout(uint64_t lastReceivedTime);
 };
