@@ -6,6 +6,7 @@ MotorController::MotorController(const uint PIN_MOTOR_1, const uint PIN_MOTOR_2,
     motor3(PIN_MOTOR_3),
     motor4(PIN_MOTOR_4){}
 
+
 void MotorController::control(int joystickLeftX, int joystickLeftY, int joystickRightX, int joystickRightY){
     const float SENSITIVITY_FACTOR = 0.5f;
     
@@ -16,6 +17,13 @@ void MotorController::control(int joystickLeftX, int joystickLeftY, int joystick
     int yaw = joystickLeftX * SENSITIVITY_FACTOR;
     int pitch = joystickRightY * SENSITIVITY_FACTOR;
     int roll = joystickRightX * SENSITIVITY_FACTOR;
+
+    // Motors
+    //       ^
+    //       |
+    // 1          2
+    //
+    // 3          4
 
     // Calculate motor speed
     motor1Speed = throttle + pitch + roll - yaw; // Front-left motor

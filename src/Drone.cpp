@@ -505,6 +505,7 @@ std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket)
         }
         case DataType::START: {
             nextPacketId = 0;
+            motorController.control(0,0,0,0);
             return receivedDataPacket;
         }
         case DataType::STOP: {
