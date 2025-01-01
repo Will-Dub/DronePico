@@ -15,11 +15,13 @@
 #pragma GCC optimize ("O0")
 
 Drone* globalDrone;
-uint8_t msgCount = 0;
 
 const uint LED_PIN = 25;
-const uint BLINK_INTERVAL_MS = 5000;
-const uint BLINK_TIME_MS = 500;
+const uint INIT_BLINK_TIME_MS = 3000;
+const uint PACKET_BLINK_TIME_MS = 300;
+
+static uint32_t ledLastToggleTime = 0;
+static uint ledLastToggleDuration = 0;
 
 /*******************************************************************************
  * Function Definitions
@@ -36,17 +38,18 @@ void interrupt(uint gpio, uint32_t events) {
     }
 }
 
-void blink_led(uint pin, uint interval_ms, uint time_ms) {
-    static uint32_t last_toggle_time = 0;
-    static bool led_state = false;
+void blinkLed(uint durationMs) {
+    ledLastToggleTime = to_ms_since_boot(get_absolute_time());
+    ledLastToggleDuration = durationMs;
+    gpio_put(LED_PIN, true);
+}
 
+void refreshLed() {
     uint32_t current_time = to_ms_since_boot(get_absolute_time());
 
-    if ((led_state && current_time - last_toggle_time >= time_ms) || (!led_state && current_time - last_toggle_time >= interval_ms)) {
-        led_state = !led_state;
-        gpio_put(pin, led_state);
-
-        last_toggle_time = current_time;
+    // Check to turn off the led
+    if((current_time - ledLastToggleTime) >= ledLastToggleDuration){
+        gpio_put(LED_PIN, false);
     }
 }
 
@@ -59,6 +62,8 @@ int main() {
     // LED init
     gpio_init(LED_PIN);
     gpio_set_dir(LED_PIN, GPIO_OUT);
+
+    blinkLed(INIT_BLINK_TIME_MS);
 
     // Drone init
     Drone drone = Drone(1);
@@ -100,6 +105,8 @@ int main() {
         if (dataPacketLoraOpt.has_value()) {
             std::optional<DataPacket> returnDataPacket = drone.handleDataPacket(dataPacketLoraOpt.value());
 
+            blinkLed(PACKET_BLINK_TIME_MS);
+
             if(returnDataPacket.has_value()){
                 drone.SendDataPacketLora(returnDataPacket.value());
             }
@@ -110,6 +117,8 @@ int main() {
 
         if (dataPacketUartOpt.has_value()) {
             std::optional<DataPacket> returnDataPacket = drone.handleDataPacket(dataPacketUartOpt.value());
+
+            blinkLed(PACKET_BLINK_TIME_MS);
 
             if(returnDataPacket.has_value()){
                 drone.SendDataPacketUart(returnDataPacket.value());
@@ -145,6 +154,6 @@ int main() {
             messageCount = 0;
         }
 
-        blink_led(LED_PIN, BLINK_INTERVAL_MS, BLINK_TIME_MS);
+        refreshLed();
     }
 }
