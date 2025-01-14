@@ -125,13 +125,13 @@ int main() {
             }
         }
 
-        // Check for lora change of state
+        // Change of state handler, lora
         bool loraConnectionStatus = drone.getLoraConnectionStatus();
         if(lastLoraConnectionStatus != loraConnectionStatus){
-            if(!loraConnectionStatus){
-                // If the connection is disconnected, stop the motors
-                drone.motorControl(0,0,0,0);
-            }
+            // Reset the drone connection
+            drone.resetConnection();
+
+            // Set the current state
             lastLoraConnectionStatus = loraConnectionStatus;
         }
 

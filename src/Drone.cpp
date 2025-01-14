@@ -357,6 +357,14 @@ DataPacket Drone::getStatusDataPacket(DataPacket receivedDataPacket){
     return DataPacket(DRONE_ID, receivedDataPacket.packetId, DataType::STATUS, byteVector);
 }
 
+/**
+ * Called on change of state on the connection, reset the count and motors
+ */
+void Drone::resetConnection(){
+    nextPacketId = 0;
+    motorController.control(0,0,0,0);
+}
+
 std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket){
     printf("New packet: %d\n", receivedDataPacket.packetId);
     //Verify for drone id
@@ -504,16 +512,18 @@ std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket)
             return getStatusDataPacket(receivedDataPacket);
         }
         case DataType::START: {
-            nextPacketId = 0;
-            motorController.control(0,0,0,0);
+            // Connection action executed in the change of state handler
             return receivedDataPacket;
         }
         case DataType::STOP: {
-            nextPacketId = 0;
-            motorController.control(0,0,0,0);
+            lora.disconnect();
+
+            // Disconnect action executed in the change of state handler
             return receivedDataPacket;
         }
         case DataType::CHANGE_SPEED: {
+            // Change the max speed of the motors
+            // Get the data
             std::string dataStr(receivedDataPacket.data.begin(), receivedDataPacket.data.end());
 
             std::vector<int> values = splitAndConvertToInts(dataStr, ';');
@@ -529,6 +539,7 @@ std::optional<DataPacket> Drone::handleDataPacket(DataPacket receivedDataPacket)
                 break;
             }
 
+            // Change the max speed
             motorController.maxMotorSpeed = maxMotorSpeed;
 
             return getStatusDataPacket(receivedDataPacket);

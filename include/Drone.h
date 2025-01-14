@@ -204,6 +204,8 @@ class Drone
 
         void motorControl(int joystickLeftX, int joystickLeftY, int joystickRightX, int joystickRightY);
 
+        void resetConnection();
+
         void log(const std::string& data, LogType logType = LogType::LOG_INFO);
 
         DataPacket getStatusDataPacket(DataPacket receivedDataPacket);

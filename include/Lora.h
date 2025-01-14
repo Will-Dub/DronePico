@@ -33,6 +33,8 @@ class Lora
 
       void recvInterrupt();
 
+      void disconnect();
+
    private:
       const long FREQUENCY;
       const size_t MAX_BUFFER_SIZE = 256;

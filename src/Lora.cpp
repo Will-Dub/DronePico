@@ -137,3 +137,7 @@ bool Lora::getIsNewDataToProcess(){
 uint64_t Lora::getLastReceiveTime() {
     return to_us_since_boot(lastReceiveTime);
 }
+
+void Lora::disconnect() {
+    lastReceiveTime._private_us_since_boot = 0;
+}
