@@ -44,6 +44,7 @@ void MotorController::control(int joystickLeftX, int joystickLeftY, int joystick
 }
 
 void MotorController::init(){
+    // TODO refactor that thing
     // Check if not already init
     if(motor1.isInit){
         return;

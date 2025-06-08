@@ -9,15 +9,22 @@ Esc::Esc(const uint pin)
     }
 
 void Esc::setSpeedUs(float pulse_width_us){
-    current_us = pulse_width_us;
     if(!isInit){
         return;
     }
 
+    // Map the pulse width
+    // Top
     if(pulse_width_us > MAX_US){
-        return;
+        pulse_width_us = MAX_US;
     }
 
+    // Bottom
+    if(pulse_width_us < MIN_US){
+        pulse_width_us = MIN_US;
+    }
+
+    // Change the speed
     uint32_t system_clk = clock_get_hz(clk_sys);
 
     float divisor = (float)system_clk / (FREQ * 65536);
@@ -42,8 +49,12 @@ void Esc::setSpeed(float pulse_width_p){
         return;
     }
 
+    // Convert the percentage to width of each pulse in ms
     float range = MAX_US - MIN_US;
-    setSpeedUs(((range / 100) * pulse_width_p) + MIN_US);
+    float pulse_width_us = ((range / 100) * pulse_width_p) + MIN_US;
+
+    // Change the speed
+    setSpeedUs(pulse_width_us);
     return;
 }
 
